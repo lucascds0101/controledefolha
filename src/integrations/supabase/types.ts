@@ -24,6 +24,7 @@ export type Database = {
           role: string | null
           updated_at: string
           user_id: string
+          vacant: boolean
         }
         Insert: {
           active?: boolean
@@ -34,6 +35,7 @@ export type Database = {
           role?: string | null
           updated_at?: string
           user_id: string
+          vacant?: boolean
         }
         Update: {
           active?: boolean
@@ -44,42 +46,64 @@ export type Database = {
           role?: string | null
           updated_at?: string
           user_id?: string
+          vacant?: boolean
         }
         Relationships: []
       }
       occurrences: {
         Row: {
+          arrival_time: string | null
+          covered: boolean | null
+          covered_by: string | null
           created_at: string
           date: string
           employee_id: string
+          exit_time: string | null
           id: string
           note: string | null
+          partner_name: string | null
           period_id: string
           quantity: number | null
+          reason: string | null
+          return_time: string | null
           type: Database["public"]["Enums"]["occurrence_type"]
           updated_at: string
           user_id: string
         }
         Insert: {
+          arrival_time?: string | null
+          covered?: boolean | null
+          covered_by?: string | null
           created_at?: string
           date: string
           employee_id: string
+          exit_time?: string | null
           id?: string
           note?: string | null
+          partner_name?: string | null
           period_id: string
           quantity?: number | null
+          reason?: string | null
+          return_time?: string | null
           type: Database["public"]["Enums"]["occurrence_type"]
           updated_at?: string
           user_id: string
         }
         Update: {
+          arrival_time?: string | null
+          covered?: boolean | null
+          covered_by?: string | null
           created_at?: string
           date?: string
           employee_id?: string
+          exit_time?: string | null
           id?: string
           note?: string | null
+          partner_name?: string | null
           period_id?: string
           quantity?: number | null
+          reason?: string | null
+          return_time?: string | null
           type?: Database["public"]["Enums"]["occurrence_type"]
           updated_at?: string
           user_id?: string
@@ -100,6 +124,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      period_days: {
+        Row: {
+          created_at: string
+          date: string
+          day_type: string
+          id: string
+          period_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          day_type: string
+          id?: string
+          period_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          day_type?: string
+          id?: string
+          period_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       periods: {
         Row: {
@@ -152,6 +206,33 @@ export type Database = {
         }
         Relationships: []
       }
+      roles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -160,7 +241,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      occurrence_type: "A" | "HE" | "F" | "AT" | "SA" | "FO"
+      occurrence_type: "A" | "HE" | "F" | "AT" | "SA" | "FO" | "TC"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -288,7 +369,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      occurrence_type: ["A", "HE", "F", "AT", "SA", "FO"],
+      occurrence_type: ["A", "HE", "F", "AT", "SA", "FO", "TC"],
     },
   },
 } as const
