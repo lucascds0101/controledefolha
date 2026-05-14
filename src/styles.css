@@ -40,16 +40,18 @@
   /* Tipos de ocorrência */
   --color-occ-a: var(--occ-a);
   --color-occ-a-bg: var(--occ-a-bg);
-  --color-occ-he: var(--occ-he);
-  --color-occ-he-bg: var(--occ-he-bg);
+  --color-occ-tc: var(--occ-tc);
+  --color-occ-tc-bg: var(--occ-tc-bg);
   --color-occ-f: var(--occ-f);
   --color-occ-f-bg: var(--occ-f-bg);
-  --color-occ-at: var(--occ-at);
-  --color-occ-at-bg: var(--occ-at-bg);
   --color-occ-sa: var(--occ-sa);
   --color-occ-sa-bg: var(--occ-sa-bg);
-  --color-occ-fo: var(--occ-fo);
-  --color-occ-fo-bg: var(--occ-fo-bg);
+
+  /* Day type tags */
+  --color-day-plantao: var(--day-plantao);
+  --color-day-plantao-bg: var(--day-plantao-bg);
+  --color-day-folga: var(--day-folga);
+  --color-day-folga-bg: var(--day-folga-bg);
 }
 
 :root {
@@ -64,7 +66,6 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.04 255);
 
-  /* Azul corporativo */
   --primary: oklch(0.45 0.18 255);
   --primary-foreground: oklch(0.99 0 0);
 
@@ -93,19 +94,19 @@
   --sidebar-border: oklch(0.3 0.04 255);
   --sidebar-ring: oklch(0.6 0.16 255);
 
-  /* Tipos de ocorrência (texto + fundo claro) */
-  --occ-a: oklch(0.55 0.15 90);     /* Atraso - amarelo/âmbar */
+  --occ-a: oklch(0.55 0.15 90);
   --occ-a-bg: oklch(0.95 0.08 90);
-  --occ-he: oklch(0.5 0.16 150);    /* Hora extra - verde */
-  --occ-he-bg: oklch(0.94 0.07 150);
-  --occ-f: oklch(0.55 0.22 25);     /* Falta - vermelho */
+  --occ-tc: oklch(0.5 0.18 290);
+  --occ-tc-bg: oklch(0.94 0.06 290);
+  --occ-f: oklch(0.55 0.22 25);
   --occ-f-bg: oklch(0.94 0.07 25);
-  --occ-at: oklch(0.5 0.18 245);    /* Atestado - azul */
-  --occ-at-bg: oklch(0.94 0.05 245);
-  --occ-sa: oklch(0.55 0.18 320);   /* Saída antecipada - rosa/magenta */
+  --occ-sa: oklch(0.55 0.18 320);
   --occ-sa-bg: oklch(0.94 0.05 320);
-  --occ-fo: oklch(0.45 0.01 250);   /* Folga - cinza */
-  --occ-fo-bg: oklch(0.93 0.005 250);
+
+  --day-plantao: oklch(0.45 0.18 255);
+  --day-plantao-bg: oklch(0.93 0.05 255);
+  --day-folga: oklch(0.45 0.01 250);
+  --day-folga-bg: oklch(0.93 0.005 250);
 }
 
 .dark {
@@ -148,16 +149,17 @@
 
   --occ-a: oklch(0.8 0.15 90);
   --occ-a-bg: oklch(0.32 0.08 90);
-  --occ-he: oklch(0.78 0.16 150);
-  --occ-he-bg: oklch(0.3 0.08 150);
+  --occ-tc: oklch(0.78 0.16 290);
+  --occ-tc-bg: oklch(0.3 0.08 290);
   --occ-f: oklch(0.78 0.18 25);
   --occ-f-bg: oklch(0.32 0.1 25);
-  --occ-at: oklch(0.78 0.16 245);
-  --occ-at-bg: oklch(0.3 0.08 245);
   --occ-sa: oklch(0.78 0.16 320);
   --occ-sa-bg: oklch(0.3 0.08 320);
-  --occ-fo: oklch(0.78 0.01 250);
-  --occ-fo-bg: oklch(0.3 0.005 250);
+
+  --day-plantao: oklch(0.78 0.16 255);
+  --day-plantao-bg: oklch(0.3 0.08 255);
+  --day-folga: oklch(0.78 0.01 250);
+  --day-folga-bg: oklch(0.3 0.005 250);
 }
 
 @layer base {
@@ -169,7 +171,6 @@
   }
 }
 
-/* Utilitário para cabeçalho/coluna fixos da spreadsheet */
 .sheet-scroll { scrollbar-color: var(--muted-foreground) transparent; }
 .sheet-scroll::-webkit-scrollbar { height: 10px; width: 10px; }
 .sheet-scroll::-webkit-scrollbar-thumb {

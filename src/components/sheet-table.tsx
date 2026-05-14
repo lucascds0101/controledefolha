@@ -1,10 +1,18 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import { Pencil, Trash2, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { OCC_META, eachDay, fmtDay, type OccType } from "@/lib/occurrence";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { OCC_META, eachDay, fmtDay, summaryFor, type OccType } from "@/lib/occurrence";
 import { cn } from "@/lib/utils";
 import { CellEditor, type CellOccurrence } from "./cell-editor";
 import {
@@ -15,30 +23,46 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import type { Period } from "./period-sidebar";
+import { useRoles } from "./roles-manager";
+import { EmployeeEditDialog, type EmployeeEditable } from "./employee-edit-dialog";
+import { DayTypeCell, type DayType } from "./day-type-cell";
 
-type Employee = { id: string; name: string; role: string | null; position: number };
+type Employee = {
+  id: string;
+  name: string;
+  role: string | null;
+  position: number;
+  vacant: boolean;
+};
 type Occurrence = {
   id: string;
   employee_id: string;
   date: string;
   type: OccType;
-  quantity: number | null;
+  arrival_time: string | null;
+  partner_name: string | null;
+  reason: string | null;
+  covered: boolean | null;
+  covered_by: string | null;
+  exit_time: string | null;
+  return_time: string | null;
   note: string | null;
 };
+type PeriodDay = { id: string; date: string; day_type: NonNullable<DayType> };
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
   const days = useMemo(() => eachDay(period.start_date, period.end_date), [period]);
+  const { data: roles = [] } = useRoles();
 
   const { data: employees = [] } = useQuery({
     queryKey: ["employees"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("id,name,role,position")
+        .select("id,name,role,position,vacant")
         .eq("active", true)
         .order("position", { ascending: true })
         .order("created_at", { ascending: true });
@@ -52,12 +76,32 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("occurrences")
-        .select("id,employee_id,date,type,quantity,note")
+        .select(
+          "id,employee_id,date,type,arrival_time,partner_name,reason,covered,covered_by,exit_time,return_time,note",
+        )
         .eq("period_id", period.id);
       if (error) throw error;
       return (data ?? []) as Occurrence[];
     },
   });
+
+  const { data: periodDays = [] } = useQuery({
+    queryKey: ["period_days", period.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("period_days")
+        .select("id,date,day_type")
+        .eq("period_id", period.id);
+      if (error) throw error;
+      return (data ?? []) as PeriodDay[];
+    },
+  });
+
+  const dayTypeMap = useMemo(() => {
+    const m = new Map<string, PeriodDay>();
+    for (const p of periodDays) m.set(p.date, p);
+    return m;
+  }, [periodDays]);
 
   const occMap = useMemo(() => {
     const m = new Map<string, Occurrence[]>();
@@ -80,7 +124,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     [employees, search],
   );
 
-  // Editor state
   const [editing, setEditing] = useState<{
     employee: Employee;
     date: string;
@@ -91,7 +134,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     mutationFn: async (rows: CellOccurrence[]) => {
       if (!editing) return;
       const { data: u } = await supabase.auth.getUser();
-      // Replace strategy: delete existing + insert
       await supabase
         .from("occurrences")
         .delete()
@@ -107,7 +149,13 @@ export function SheetTable({ period, search }: { period: Period; search: string 
             period_id: period.id,
             date: editing.date,
             type: r.type,
-            quantity: r.quantity,
+            arrival_time: r.arrival_time,
+            partner_name: r.partner_name,
+            reason: r.reason,
+            covered: r.covered,
+            covered_by: r.covered_by,
+            exit_time: r.exit_time,
+            return_time: r.return_time,
             note: r.note?.trim() || null,
           })),
         );
@@ -125,7 +173,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   // Add employee
   const [openAdd, setOpenAdd] = useState(false);
   const [name, setName] = useState("");
-  const [role, setRole] = useState("");
+  const [role, setRole] = useState<string>("");
   const addEmp = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
@@ -144,6 +192,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       setOpenAdd(false);
       toast.success("Colaborador adicionado");
     },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const removeEmp = useMutation({
@@ -153,6 +202,8 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["employees"] }),
   });
+
+  const [editingEmp, setEditingEmp] = useState<EmployeeEditable | null>(null);
 
   return (
     <>
@@ -180,8 +231,19 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Cargo (opcional)</Label>
-                  <Input value={role} onChange={(e) => setRole(e.target.value)} />
+                  <Label>Cargo</Label>
+                  <Select value={role} onValueChange={setRole}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((r) => (
+                        <SelectItem key={r.id} value={r.name}>
+                          {r.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <DialogFooter>
@@ -200,21 +262,28 @@ export function SheetTable({ period, search }: { period: Period; search: string 
           <table className="border-separate border-spacing-0 text-sm w-full">
             <thead className="sticky top-0 z-20">
               <tr>
-                <th className="sticky left-0 z-30 bg-card border-b border-r min-w-[220px] text-left px-3 py-2 font-medium text-muted-foreground">
+                <th className="sticky left-0 z-30 bg-card border-b border-r min-w-[240px] text-left px-3 py-2 font-medium text-muted-foreground">
                   Colaborador
                 </th>
                 {days.map((d) => {
                   const f = fmtDay(d);
+                  const pd = dayTypeMap.get(d);
                   return (
                     <th
                       key={d}
                       className={cn(
-                        "border-b border-r px-1 py-2 font-medium text-muted-foreground min-w-[56px]",
+                        "border-b border-r px-1 py-1.5 font-medium text-muted-foreground min-w-[64px] align-top bg-card",
                         f.isWeekend && "bg-muted/40",
                       )}
                     >
                       <div className="text-[11px] uppercase">{f.weekday}</div>
                       <div className="text-foreground font-semibold">{f.day}</div>
+                      <DayTypeCell
+                        periodId={period.id}
+                        date={d}
+                        current={pd?.day_type ?? null}
+                        existingId={pd?.id}
+                      />
                     </th>
                   );
                 })}
@@ -226,22 +295,45 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                   <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-2 align-middle">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="font-medium truncate">{emp.name}</div>
+                        <div className="font-medium truncate flex items-center gap-2">
+                          {emp.name}
+                          {emp.vacant && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                              VAGO
+                            </span>
+                          )}
+                        </div>
                         {emp.role && (
                           <div className="text-xs text-muted-foreground truncate">
                             {emp.role}
                           </div>
                         )}
                       </div>
-                      <button
-                        className="opacity-0 group-hover:opacity-60 hover:opacity-100 text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          if (confirm(`Remover ${emp.name}?`)) removeEmp.mutate(emp.id);
-                        }}
-                        aria-label="Remover"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                        <button
+                          className="text-muted-foreground hover:text-foreground p-1"
+                          onClick={() =>
+                            setEditingEmp({
+                              id: emp.id,
+                              name: emp.name,
+                              role: emp.role,
+                              vacant: emp.vacant,
+                            })
+                          }
+                          aria-label="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          className="text-muted-foreground hover:text-destructive p-1"
+                          onClick={() => {
+                            if (confirm(`Remover ${emp.name}?`)) removeEmp.mutate(emp.id);
+                          }}
+                          aria-label="Remover"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </td>
                   {days.map((d) => {
@@ -261,7 +353,13 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                             rows: items.map((i) => ({
                               id: i.id,
                               type: i.type,
-                              quantity: i.quantity,
+                              arrival_time: i.arrival_time,
+                              partner_name: i.partner_name,
+                              reason: i.reason,
+                              covered: i.covered,
+                              covered_by: i.covered_by,
+                              exit_time: i.exit_time,
+                              return_time: i.return_time,
                               note: i.note,
                             })),
                           })
@@ -273,10 +371,11 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           ) : (
                             items.map((it) => {
                               const m = OCC_META[it.type];
+                              if (!m) return null;
                               return (
                                 <span
                                   key={it.id}
-                                  title={`${m.full}${it.quantity ? ` (${it.quantity}h)` : ""}${it.note ? ` — ${it.note}` : ""}`}
+                                  title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
                                   className={cn(
                                     "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
                                     m.bg,
@@ -284,11 +383,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                                   )}
                                 >
                                   {m.label}
-                                  {it.quantity ? (
-                                    <span className="ml-0.5 font-medium opacity-80">
-                                      {it.quantity}
-                                    </span>
-                                  ) : null}
                                 </span>
                               );
                             })
@@ -326,6 +420,12 @@ export function SheetTable({ period, search }: { period: Period; search: string 
           onSave={async (r) => saveCell.mutateAsync(r)}
         />
       )}
+
+      <EmployeeEditDialog
+        employee={editingEmp}
+        open={!!editingEmp}
+        onOpenChange={(o) => !o && setEditingEmp(null)}
+      />
     </>
   );
 }

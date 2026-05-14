@@ -14,39 +14,38 @@ import {
 } from "recharts";
 import type { Period } from "./period-sidebar";
 
+type Row = {
+  type: OccType;
+  employee_id: string;
+  employees: { name: string } | null;
+};
+
 export function Dashboard({ period }: { period: Period }) {
   const { data = [] } = useQuery({
     queryKey: ["dashboard", period.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("occurrences")
-        .select("type,employee_id,quantity,employees(name)")
+        .select("type,employee_id,employees(name)")
         .eq("period_id", period.id);
       if (error) throw error;
-      return data as unknown as {
-        type: OccType;
-        employee_id: string;
-        quantity: number | null;
-        employees: { name: string } | null;
-      }[];
+      return data as unknown as Row[];
     },
   });
 
   const totals = useMemo(() => {
-    const t: Record<OccType, number> = { A: 0, HE: 0, F: 0, AT: 0, SA: 0, FO: 0 };
-    for (const r of data) t[r.type]++;
+    const t: Record<OccType, number> = { A: 0, TC: 0, F: 0, SA: 0 };
+    for (const r of data) if (r.type in t) t[r.type]++;
     return t;
   }, [data]);
 
   const perEmp = useMemo(() => {
     const m = new Map<string, { name: string } & Record<OccType, number>>();
     for (const r of data) {
+      if (!OCC_TYPES.includes(r.type)) continue;
       const name = r.employees?.name ?? "—";
       const cur =
-        m.get(r.employee_id) ??
-        ({ name, A: 0, HE: 0, F: 0, AT: 0, SA: 0, FO: 0 } as ReturnType<
-          typeof m.get
-        > & object);
+        m.get(r.employee_id) ?? ({ name, A: 0, TC: 0, F: 0, SA: 0 } as never);
       (cur as Record<OccType, number>)[r.type]++;
       m.set(r.employee_id, cur as never);
     }
@@ -55,14 +54,11 @@ export function Dashboard({ period }: { period: Period }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {OCC_TYPES.map((t) => {
           const m = OCC_META[t];
           return (
-            <div
-              key={t}
-              className={cn("rounded-lg border p-3", m.bg)}
-            >
+            <div key={t} className={cn("rounded-lg border p-3", m.bg)}>
               <div className="flex items-center justify-between">
                 <span className={cn("text-xs font-semibold", m.text)}>{m.full}</span>
                 <span
@@ -101,11 +97,9 @@ export function Dashboard({ period }: { period: Period }) {
                   }}
                 />
                 <Bar dataKey="A" stackId="a" fill="var(--occ-a)" name="Atrasos" />
+                <Bar dataKey="TC" stackId="a" fill="var(--occ-tc)" name="Trocas" />
                 <Bar dataKey="F" stackId="a" fill="var(--occ-f)" name="Faltas" />
-                <Bar dataKey="AT" stackId="a" fill="var(--occ-at)" name="Atestados" />
-                <Bar dataKey="HE" stackId="a" fill="var(--occ-he)" name="H. Extra" />
                 <Bar dataKey="SA" stackId="a" fill="var(--occ-sa)" name="Saída Ant." />
-                <Bar dataKey="FO" stackId="a" fill="var(--occ-fo)" name="Folgas" />
               </BarChart>
             </ResponsiveContainer>
           </div>
