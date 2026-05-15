@@ -110,13 +110,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "occurrences_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "occurrences_period_id_fkey"
             columns: ["period_id"]
             isOneToOne: false
@@ -152,6 +145,45 @@ export type Database = {
           period_id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      period_employees: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          period_id: string
+          position: number
+          role: string | null
+          source_employee_id: string | null
+          updated_at: string
+          user_id: string
+          vacant: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          period_id: string
+          position?: number
+          role?: string | null
+          source_employee_id?: string | null
+          updated_at?: string
+          user_id: string
+          vacant?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          period_id?: string
+          position?: number
+          role?: string | null
+          source_employee_id?: string | null
+          updated_at?: string
+          user_id?: string
+          vacant?: boolean
         }
         Relationships: []
       }
