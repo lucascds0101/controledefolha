@@ -14,43 +14,54 @@ import {
 } from "recharts";
 import type { Period } from "./period-sidebar";
 
-type Row = {
-  type: OccType;
-  employee_id: string;
-  employees: { name: string } | null;
-};
+type Row = { type: OccType; employee_id: string };
+type PE = { id: string; name: string; vacant: boolean };
 
 export function Dashboard({ period }: { period: Period }) {
-  const { data = [] } = useQuery({
-    queryKey: ["dashboard", period.id],
+  const { data: occ = [] } = useQuery({
+    queryKey: ["dashboard-occ", period.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("occurrences")
-        .select("type,employee_id,employees(name)")
+        .select("type,employee_id")
         .eq("period_id", period.id);
       if (error) throw error;
-      return data as unknown as Row[];
+      return (data ?? []) as Row[];
     },
   });
 
+  const { data: emps = [] } = useQuery({
+    queryKey: ["dashboard-pe", period.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("period_employees")
+        .select("id,name,vacant")
+        .eq("period_id", period.id);
+      if (error) throw error;
+      return (data ?? []) as PE[];
+    },
+  });
+
+  const empMap = useMemo(() => new Map(emps.map((e) => [e.id, e])), [emps]);
+
   const totals = useMemo(() => {
     const t: Record<OccType, number> = { A: 0, TC: 0, F: 0, SA: 0 };
-    for (const r of data) if (r.type in t) t[r.type]++;
+    for (const r of occ) if (r.type in t) t[r.type]++;
     return t;
-  }, [data]);
+  }, [occ]);
 
   const perEmp = useMemo(() => {
     const m = new Map<string, { name: string } & Record<OccType, number>>();
-    for (const r of data) {
+    for (const r of occ) {
       if (!OCC_TYPES.includes(r.type)) continue;
-      const name = r.employees?.name ?? "—";
-      const cur =
-        m.get(r.employee_id) ?? ({ name, A: 0, TC: 0, F: 0, SA: 0 } as never);
+      const e = empMap.get(r.employee_id);
+      const name = e?.vacant ? "VAGO" : e?.name ?? "—";
+      const cur = m.get(r.employee_id) ?? ({ name, A: 0, TC: 0, F: 0, SA: 0 } as never);
       (cur as Record<OccType, number>)[r.type]++;
       m.set(r.employee_id, cur as never);
     }
     return [...m.values()];
-  }, [data]);
+  }, [occ, empMap]);
 
   return (
     <div className="space-y-4">
@@ -83,10 +94,7 @@ export function Dashboard({ period }: { period: Period }) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={perEmp}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
                 <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
                 <Tooltip
                   contentStyle={{

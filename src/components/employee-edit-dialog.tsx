@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,9 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
-import { useRoles } from "./roles-manager";
 import { toast } from "sonner";
+
+type Role = { id: string; name: string };
 
 export type EmployeeEditable = {
   id: string;
@@ -31,15 +32,27 @@ export type EmployeeEditable = {
 
 export function EmployeeEditDialog({
   employee,
+  periodId,
   open,
   onOpenChange,
 }: {
   employee: EmployeeEditable | null;
+  periodId: string;
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
   const qc = useQueryClient();
-  const { data: roles = [] } = useRoles();
+  const { data: roles = [] } = useQuery({
+    queryKey: ["roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("roles")
+        .select("id,name,position")
+        .order("position");
+      if (error) throw error;
+      return (data ?? []) as Role[];
+    },
+  });
   const [name, setName] = useState("");
   const [role, setRole] = useState<string>("");
   const [vacant, setVacant] = useState(false);
@@ -56,15 +69,15 @@ export function EmployeeEditDialog({
     mutationFn: async () => {
       if (!employee) return;
       const { error } = await supabase
-        .from("employees")
+        .from("period_employees")
         .update({ name: name.trim(), role: role || null, vacant })
         .eq("id", employee.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["period_employees", periodId] });
       onOpenChange(false);
-      toast.success("Colaborador atualizado");
+      toast.success("Colaborador atualizado neste período");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -73,7 +86,7 @@ export function EmployeeEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Editar colaborador</DialogTitle>
+          <DialogTitle>Editar colaborador (somente neste período)</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -99,7 +112,7 @@ export function EmployeeEditDialog({
             <div>
               <Label className="text-sm">Posto vago</Label>
               <p className="text-xs text-muted-foreground">
-                Mantém o registro mas marca como vaga.
+                Mostra apenas “VAGO” na tabela. Não afeta outros períodos.
               </p>
             </div>
             <Switch checked={vacant} onCheckedChange={setVacant} />
