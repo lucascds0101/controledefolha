@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OCC_META, eachDay, fmtDay, summaryFor, type OccType } from "@/lib/occurrence";
+import { todayISO, dayState } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { CellEditor, type CellOccurrence } from "./cell-editor";
 import {
@@ -25,11 +26,11 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { Period } from "./period-sidebar";
-import { useRoles } from "./roles-manager";
 import { EmployeeEditDialog, type EmployeeEditable } from "./employee-edit-dialog";
 import { DayTypeCell, type DayType } from "./day-type-cell";
 
-type Employee = {
+type Role = { id: string; name: string };
+type PE = {
   id: string;
   name: string;
   role: string | null;
@@ -55,19 +56,31 @@ type PeriodDay = { id: string; date: string; day_type: NonNullable<DayType> };
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
   const days = useMemo(() => eachDay(period.start_date, period.end_date), [period]);
-  const { data: roles = [] } = useRoles();
+  const today = todayISO();
 
-  const { data: employees = [] } = useQuery({
-    queryKey: ["employees"],
+  const { data: roles = [] } = useQuery({
+    queryKey: ["roles"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("employees")
+        .from("roles")
+        .select("id,name,position")
+        .order("position");
+      if (error) throw error;
+      return (data ?? []) as Role[];
+    },
+  });
+
+  const { data: employees = [] } = useQuery({
+    queryKey: ["period_employees", period.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("period_employees")
         .select("id,name,role,position,vacant")
-        .eq("active", true)
+        .eq("period_id", period.id)
         .order("position", { ascending: true })
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as Employee[];
+      return (data ?? []) as PE[];
     },
   });
 
@@ -115,17 +128,17 @@ export function SheetTable({ period, search }: { period: Period; search: string 
 
   const filtered = useMemo(
     () =>
-      employees.filter((e) =>
-        search.trim() === ""
-          ? true
-          : e.name.toLowerCase().includes(search.toLowerCase()) ||
-            (e.role ?? "").toLowerCase().includes(search.toLowerCase()),
-      ),
+      employees.filter((e) => {
+        if (search.trim() === "") return true;
+        const q = search.toLowerCase();
+        const display = e.vacant ? "vago" : e.name.toLowerCase();
+        return display.includes(q) || (e.role ?? "").toLowerCase().includes(q);
+      }),
     [employees, search],
   );
 
   const [editing, setEditing] = useState<{
-    employee: Employee;
+    employee: PE;
     date: string;
     rows: CellOccurrence[];
   } | null>(null);
@@ -170,15 +183,15 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Add employee
   const [openAdd, setOpenAdd] = useState(false);
   const [name, setName] = useState("");
   const [role, setRole] = useState<string>("");
   const addEmp = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("employees").insert({
+      const { error } = await supabase.from("period_employees").insert({
         user_id: u.user!.id,
+        period_id: period.id,
         name,
         role: role || null,
         position: employees.length,
@@ -186,24 +199,36 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["period_employees", period.id] });
       setName("");
       setRole("");
       setOpenAdd(false);
-      toast.success("Colaborador adicionado");
+      toast.success("Colaborador adicionado neste período");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const removeEmp = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("employees").delete().eq("id", id);
+      // Remove also occurrences for this employee in this period to keep data tidy.
+      await supabase
+        .from("occurrences")
+        .delete()
+        .eq("employee_id", id)
+        .eq("period_id", period.id);
+      const { error } = await supabase.from("period_employees").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["employees"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["period_employees", period.id] });
+      qc.invalidateQueries({ queryKey: ["occurrences", period.id] });
+    },
   });
 
   const [editingEmp, setEditingEmp] = useState<EmployeeEditable | null>(null);
+
+  const totalCount = employees.length;
+  const vacantCount = employees.filter((e) => e.vacant).length;
 
   return (
     <>
@@ -212,7 +237,8 @@ export function SheetTable({ period, search }: { period: Period; search: string 
           <div>
             <h2 className="font-semibold">Folha de ocorrências</h2>
             <p className="text-xs text-muted-foreground">
-              {days.length} dias · clique numa célula para registrar
+              {days.length} dias · {totalCount} colaborador{totalCount === 1 ? "" : "es"}
+              {vacantCount > 0 && ` · ${vacantCount} vago${vacantCount === 1 ? "" : "s"}`}
             </p>
           </div>
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
@@ -223,7 +249,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Novo colaborador</DialogTitle>
+                <DialogTitle>Novo colaborador (somente neste período)</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
                 <div className="space-y-1.5">
@@ -268,16 +294,26 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                 {days.map((d) => {
                   const f = fmtDay(d);
                   const pd = dayTypeMap.get(d);
+                  const ds = dayState(d, today);
                   return (
                     <th
                       key={d}
                       className={cn(
-                        "border-b border-r px-1 py-1.5 font-medium text-muted-foreground min-w-[64px] align-top bg-card",
-                        f.isWeekend && "bg-muted/40",
+                        "border-b border-r px-1 py-1.5 font-medium text-muted-foreground min-w-[64px] align-top transition-colors",
+                        f.isWeekend ? "bg-muted/40" : "bg-card",
+                        ds === "today" && "bg-primary/10 ring-1 ring-primary/40 relative",
+                        ds === "future" && "opacity-60",
                       )}
                     >
                       <div className="text-[11px] uppercase">{f.weekday}</div>
-                      <div className="text-foreground font-semibold">{f.day}</div>
+                      <div
+                        className={cn(
+                          "font-semibold",
+                          ds === "today" ? "text-primary" : "text-foreground",
+                        )}
+                      >
+                        {f.day}
+                      </div>
                       <DayTypeCell
                         periodId={period.id}
                         date={d}
@@ -295,15 +331,14 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                   <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-2 align-middle">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="font-medium truncate flex items-center gap-2">
-                          {emp.name}
-                          {emp.vacant && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                              VAGO
-                            </span>
-                          )}
-                        </div>
-                        {emp.role && (
+                        {emp.vacant ? (
+                          <div className="font-bold text-muted-foreground tracking-wider">
+                            VAGO
+                          </div>
+                        ) : (
+                          <div className="font-medium truncate">{emp.name}</div>
+                        )}
+                        {emp.role && !emp.vacant && (
                           <div className="text-xs text-muted-foreground truncate">
                             {emp.role}
                           </div>
@@ -327,7 +362,12 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         <button
                           className="text-muted-foreground hover:text-destructive p-1"
                           onClick={() => {
-                            if (confirm(`Remover ${emp.name}?`)) removeEmp.mutate(emp.id);
+                            if (
+                              confirm(
+                                `Remover ${emp.vacant ? "este posto" : emp.name} apenas deste período?`,
+                              )
+                            )
+                              removeEmp.mutate(emp.id);
                           }}
                           aria-label="Remover"
                         >
@@ -339,12 +379,22 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                   {days.map((d) => {
                     const items = occMap.get(`${emp.id}|${d}`) ?? [];
                     const f = fmtDay(d);
+                    const ds = dayState(d, today);
+                    const dt = dayTypeMap.get(d)?.day_type ?? null;
+                    const autoPresent =
+                      items.length === 0 &&
+                      dt === "plantao" &&
+                      (ds === "past" || ds === "today") &&
+                      !emp.vacant;
                     return (
                       <td
                         key={d}
                         className={cn(
                           "border-b border-r p-1 align-middle text-center cursor-pointer hover:bg-accent/40 transition",
                           f.isWeekend && "bg-muted/20",
+                          ds === "today" && "bg-primary/5 ring-1 ring-inset ring-primary/30",
+                          ds === "future" && "opacity-60",
+                          autoPresent && "bg-occ-p-bg/60",
                         )}
                         onClick={() =>
                           setEditing({
@@ -367,7 +417,16 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       >
                         <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
                           {items.length === 0 ? (
-                            <span className="text-muted-foreground/30 text-xs">+</span>
+                            autoPresent ? (
+                              <span
+                                title="Presença confirmada (plantão sem ocorrências)"
+                                className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-p-bg text-occ-p"
+                              >
+                                P
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/30 text-xs">+</span>
+                            )
                           ) : (
                             items.map((it) => {
                               const m = OCC_META[it.type];
@@ -414,7 +473,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         <CellEditor
           open={!!editing}
           onOpenChange={(o) => !o && setEditing(null)}
-          employeeName={editing.employee.name}
+          employeeName={editing.employee.vacant ? "VAGO" : editing.employee.name}
           date={editing.date}
           initial={editing.rows}
           onSave={async (r) => saveCell.mutateAsync(r)}
@@ -423,6 +482,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
 
       <EmployeeEditDialog
         employee={editingEmp}
+        periodId={period.id}
         open={!!editingEmp}
         onOpenChange={(o) => !o && setEditingEmp(null)}
       />
