@@ -159,6 +159,8 @@
   --occ-f-bg: oklch(0.32 0.1 25);
   --occ-sa: oklch(0.78 0.16 320);
   --occ-sa-bg: oklch(0.3 0.08 320);
+  --occ-p: oklch(0.78 0.16 150);
+  --occ-p-bg: oklch(0.3 0.08 150);
 
   --day-plantao: oklch(0.78 0.16 255);
   --day-plantao-bg: oklch(0.3 0.08 255);
