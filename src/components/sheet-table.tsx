@@ -127,16 +127,15 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     return m;
   }, [occurrences]);
 
-  const filtered = useMemo(
-    () =>
-      employees.filter((e) => {
-        if (search.trim() === "") return true;
-        const q = search.toLowerCase();
-        const display = e.vacant ? "vago" : e.name.toLowerCase();
-        return display.includes(q) || (e.role ?? "").toLowerCase().includes(q);
-      }),
-    [employees, search],
-  );
+  const filtered = useMemo(() => {
+    const list = employees.filter((e) => {
+      if (search.trim() === "") return true;
+      const q = search.toLowerCase();
+      const display = e.vacant ? "vago" : e.name.toLowerCase();
+      return display.includes(q) || (e.role ?? "").toLowerCase().includes(q);
+    });
+    return sortEmployees(list);
+  }, [employees, search]);
 
   const [editing, setEditing] = useState<{
     employee: PE;
