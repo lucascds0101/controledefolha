@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { OCC_META, eachDay, fmtDay, summaryFor, type OccType } from "@/lib/occurrence";
 import { todayISO, dayState } from "@/lib/date-utils";
+import { sortEmployees } from "@/lib/sort-employees";
 import { cn } from "@/lib/utils";
 import { CellEditor, type CellOccurrence } from "./cell-editor";
 import {
@@ -126,16 +127,15 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     return m;
   }, [occurrences]);
 
-  const filtered = useMemo(
-    () =>
-      employees.filter((e) => {
-        if (search.trim() === "") return true;
-        const q = search.toLowerCase();
-        const display = e.vacant ? "vago" : e.name.toLowerCase();
-        return display.includes(q) || (e.role ?? "").toLowerCase().includes(q);
-      }),
-    [employees, search],
-  );
+  const filtered = useMemo(() => {
+    const list = employees.filter((e) => {
+      if (search.trim() === "") return true;
+      const q = search.toLowerCase();
+      const display = e.vacant ? "vago" : e.name.toLowerCase();
+      return display.includes(q) || (e.role ?? "").toLowerCase().includes(q);
+    });
+    return sortEmployees(list);
+  }, [employees, search]);
 
   const [editing, setEditing] = useState<{
     employee: PE;
@@ -338,7 +338,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         ) : (
                           <div className="font-medium truncate">{emp.name}</div>
                         )}
-                        {emp.role && !emp.vacant && (
+                        {emp.role && (
                           <div className="text-xs text-muted-foreground truncate">
                             {emp.role}
                           </div>

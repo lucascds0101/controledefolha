@@ -6,7 +6,6 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   LogOut,
-  Plus,
   Calendar,
   Pencil,
   Trash2,
@@ -24,29 +23,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { SettingsDialog } from "./settings-dialog";
+import { NewPeriodDialog } from "./new-period-dialog";
 import type { Period } from "./period-sidebar";
 
-const PIN_KEY = "cf-sidebar-pinned";
-
-function defaultPeriod() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 16);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 15);
-  const fmt = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-  const lbl = (d: Date) =>
-    d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  return { start_date: fmt(start), end_date: fmt(end), label: `${lbl(start)} - ${lbl(end)}` };
-}
+const EXPAND_KEY = "cf-sidebar-expanded";
 
 export function AppSidebar({
   selectedPeriodId,
@@ -59,20 +43,20 @@ export function AppSidebar({
   const qc = useQueryClient();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
-  const [pinned, setPinned] = useState(false);
-  const [hover, setHover] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
-    setPinned(localStorage.getItem(PIN_KEY) === "1");
+    setExpanded(localStorage.getItem(EXPAND_KEY) === "1");
   }, []);
-  const expanded = pinned || hover;
+
+  function toggle() {
+    setExpanded((prev) => {
+      const next = !prev;
+      localStorage.setItem(EXPAND_KEY, next ? "1" : "0");
+      return next;
+    });
+  }
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-
-  const [createOpen, setCreateOpen] = useState(false);
-  const def = defaultPeriod();
-  const [start, setStart] = useState(def.start_date);
-  const [end, setEnd] = useState(def.end_date);
-  const [label, setLabel] = useState(def.label);
 
   const [editing, setEditing] = useState<Period | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -99,27 +83,6 @@ export function AppSidebar({
     if (p) onSelectPeriod(p);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periods]);
-
-  const createPeriod = useMutation({
-    mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      const { data, error } = await supabase
-        .from("periods")
-        .insert({ user_id: u.user!.id, label, start_date: start, end_date: end })
-        .select()
-        .single();
-      if (error) throw error;
-      return data as Period;
-    },
-    onSuccess: (p) => {
-      qc.invalidateQueries({ queryKey: ["periods"] });
-      qc.invalidateQueries({ queryKey: ["period_employees"] });
-      onSelectPeriod(p);
-      setCreateOpen(false);
-      toast.success("Período criado");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const updatePeriod = useMutation({
     mutationFn: async () => {
@@ -154,12 +117,6 @@ export function AppSidebar({
     setEditOpen(true);
   }
 
-  function togglePin() {
-    const next = !pinned;
-    setPinned(next);
-    localStorage.setItem(PIN_KEY, next ? "1" : "0");
-  }
-
   const NavItem = ({
     to,
     icon: Icon,
@@ -178,8 +135,8 @@ export function AppSidebar({
         <Icon className="h-4 w-4 shrink-0" />
         <span
           className={cn(
-            "text-sm font-medium whitespace-nowrap overflow-hidden transition-opacity",
-            expanded ? "opacity-100" : "opacity-0 w-0",
+            "text-sm font-medium whitespace-nowrap overflow-hidden transition-all",
+            expanded ? "opacity-100 w-auto" : "opacity-0 w-0",
           )}
         >
           {label}
@@ -209,8 +166,6 @@ export function AppSidebar({
   return (
     <>
       <aside
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
         className={cn(
           "shrink-0 bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0 z-30 border-r border-sidebar-border",
           "transition-[width] duration-300 ease-out",
@@ -218,27 +173,31 @@ export function AppSidebar({
         )}
       >
         <div className="h-14 flex items-center gap-2 px-3 border-b border-sidebar-border">
-          <div className="grid place-items-center w-8 h-8 rounded-md bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
-            <ClipboardList className="h-4 w-4" />
-          </div>
+          <button
+            onClick={toggle}
+            className="grid place-items-center w-8 h-8 rounded-md bg-sidebar-primary text-sidebar-primary-foreground shrink-0 hover:opacity-90 transition"
+            title={expanded ? "Recolher" : "Expandir"}
+            aria-label={expanded ? "Recolher menu" : "Expandir menu"}
+          >
+            {expanded ? (
+              <PanelLeftClose className="h-4 w-4" />
+            ) : (
+              <PanelLeftOpen className="h-4 w-4" />
+            )}
+          </button>
           <div
             className={cn(
-              "leading-tight overflow-hidden transition-opacity",
-              expanded ? "opacity-100" : "opacity-0 w-0",
+              "leading-tight overflow-hidden transition-all",
+              expanded ? "opacity-100 w-auto" : "opacity-0 w-0",
             )}
           >
             <p className="text-sm font-semibold whitespace-nowrap">Controle de Folha</p>
           </div>
-          <button
-            onClick={togglePin}
-            className={cn(
-              "ml-auto text-sidebar-foreground/60 hover:text-sidebar-foreground transition",
-              !expanded && "hidden",
-            )}
-            title={pinned ? "Recolher" : "Fixar aberto"}
-          >
-            {pinned ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-          </button>
+          {expanded && (
+            <span className="ml-auto opacity-0 pointer-events-none">
+              <ClipboardList className="h-4 w-4" />
+            </span>
+          )}
         </div>
 
         <div className="py-2 space-y-0.5">
@@ -259,46 +218,7 @@ export function AppSidebar({
 
         {expanded && (
           <div className="px-2">
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="secondary" className="w-full justify-start gap-2">
-                  <Plus className="h-4 w-4" /> Novo período
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Criar período</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label>Rótulo</Label>
-                    <Input value={label} onChange={(e) => setLabel(e.target.value)} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Início</Label>
-                      <Input
-                        type="date"
-                        value={start}
-                        onChange={(e) => setStart(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Fim</Label>
-                      <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Os colaboradores do período mais recente são copiados automaticamente.
-                  </p>
-                </div>
-                <DialogFooter>
-                  <Button onClick={() => createPeriod.mutate()} disabled={createPeriod.isPending}>
-                    Criar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <NewPeriodDialog onCreated={(p) => onSelectPeriod(p)} />
           </div>
         )}
 

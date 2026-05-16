@@ -1,4 +1,4 @@
-export type OccType = "A" | "TC" | "F" | "SA";
+export type OccType = "A" | "TC" | "F" | "SA" | "SD" | "EX";
 
 export const OCC_META: Record<
   OccType,
@@ -32,9 +32,23 @@ export const OCC_META: Record<
     text: "text-occ-sa",
     ring: "ring-occ-sa/40",
   },
+  SD: {
+    label: "SD",
+    full: "Sanção disciplinar",
+    bg: "bg-occ-sd-bg",
+    text: "text-occ-sd",
+    ring: "ring-occ-sd/40",
+  },
+  EX: {
+    label: "EX",
+    full: "Extra",
+    bg: "bg-occ-ex-bg",
+    text: "text-occ-ex",
+    ring: "ring-occ-ex/40",
+  },
 };
 
-export const OCC_TYPES: OccType[] = ["A", "TC", "F", "SA"];
+export const OCC_TYPES: OccType[] = ["A", "TC", "F", "SA", "SD", "EX"];
 
 export const FALTA_REASONS = [
   "Sem contato",
@@ -49,12 +63,21 @@ export const SAIDA_REASONS = [
   "Problema pessoal",
 ] as const;
 
+export const SANCTION_KINDS = [
+  "Advertência verbal",
+  "Advertência escrita",
+  "Suspensão",
+] as const;
+
 export function eachDay(start: string, end: string): string[] {
   const out: string[] = [];
   const s = new Date(start + "T00:00:00");
   const e = new Date(end + "T00:00:00");
   for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-    out.push(d.toISOString().slice(0, 10));
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    out.push(`${y}-${m}-${day}`);
   }
   return out;
 }
@@ -76,6 +99,8 @@ export function summaryFor(o: {
   exit_time?: string | null;
   return_time?: string | null;
   note?: string | null;
+  sanction_kind?: string | null;
+  suspension_days?: number | null;
 }): string {
   switch (o.type) {
     case "A":
@@ -96,5 +121,14 @@ export function summaryFor(o: {
       if (o.return_time) parts.push(`retorno ${o.return_time.slice(0, 5)}`);
       return parts.join(" · ") || "Saída antecipada";
     }
+    case "SD": {
+      const parts: string[] = [];
+      if (o.sanction_kind) parts.push(o.sanction_kind);
+      if (o.sanction_kind === "Suspensão" && o.suspension_days)
+        parts.push(`${o.suspension_days} dia${o.suspension_days === 1 ? "" : "s"}`);
+      return parts.join(" · ") || "Sanção disciplinar";
+    }
+    case "EX":
+      return "Extra (folga trabalhada)";
   }
 }
