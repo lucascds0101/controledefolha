@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { OCC_META, eachDay, fmtDay, summaryFor, type OccType } from "@/lib/occurrence";
 import { todayISO, dayState } from "@/lib/date-utils";
+import { sortEmployees } from "@/lib/sort-employees";
 import { cn } from "@/lib/utils";
 import { CellEditor, type CellOccurrence } from "./cell-editor";
 import {
