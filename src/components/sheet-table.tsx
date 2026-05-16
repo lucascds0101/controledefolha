@@ -338,7 +338,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         ) : (
                           <div className="font-medium truncate">{emp.name}</div>
                         )}
-                        {emp.role && !emp.vacant && (
+                        {emp.role && (
                           <div className="text-xs text-muted-foreground truncate">
                             {emp.role}
                           </div>
