@@ -84,51 +84,72 @@ export function EmployeeEditDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [vacOpen, setVacOpen] = useState(false);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Editar colaborador (somente neste período)</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Nome</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Cargo</Label>
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um cargo" />
-              </SelectTrigger>
-              <SelectContent>
-                {roles.map((r) => (
-                  <SelectItem key={r.id} value={r.name}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between rounded-md border p-3">
-            <div>
-              <Label className="text-sm">Posto vago</Label>
-              <p className="text-xs text-muted-foreground">
-                Mostra apenas “VAGO” na tabela. Não afeta outros períodos.
-              </p>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar colaborador (somente neste período)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-            <Switch checked={vacant} onCheckedChange={setVacant} />
+            <div className="space-y-1.5">
+              <Label>Cargo</Label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um cargo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((r) => (
+                    <SelectItem key={r.id} value={r.name}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <Label className="text-sm">Posto vago</Label>
+                <p className="text-xs text-muted-foreground">
+                  Mostra “VAGO” no lugar do nome. O cargo continua visível.
+                </p>
+              </div>
+              <Switch checked={vacant} onCheckedChange={setVacant} />
+            </div>
+
+            {employee && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => setVacOpen(true)}
+              >
+                <Plane className="h-4 w-4" /> Férias do colaborador
+              </Button>
+            )}
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
-            Salvar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <VacationDialog
+        open={vacOpen}
+        onOpenChange={setVacOpen}
+        periodEmployeeId={employee?.id ?? null}
+        employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
+      />
+    </>
   );
 }
