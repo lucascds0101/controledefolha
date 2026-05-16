@@ -1,73 +1,129 @@
+## Resumo do escopo
 
-## 1. Colaboradores e ocorrências por período (mudança maior)
+Limpar a página principal, melhorar busca/sidebar/presença automática, preparar criação de período com escala semanal automática, adicionar férias, sanção disciplinar, extra (folga) e ordenação fixa por cargo.
 
-Hoje a tabela `employees` é global por usuário — qualquer edição (nome, cargo, vago) ou exclusão afeta todos os períodos. Vou trocar o modelo:
+---
 
-- Nova tabela `period_employees(id, user_id, period_id, position, name, role, vacant, created_at, updated_at)`. Cada período tem sua própria lista.
-- Ao **criar** um novo período, copio automaticamente as linhas do período mais recente (snapshot), preservando ordem, nome, cargo e estado vago/não vago.
-- `occurrences.employee_id` passa a referenciar `period_employees.id`. Como o `employee_id` atual é UUID livre (sem FK), a migração apenas reaponta as ocorrências existentes para os novos `period_employees` correspondentes (gera 1 `period_employee` por par único `(period_id, employee_id)` usando o último nome/cargo conhecido do `employees`).
-- A tabela `employees` original fica obsoleta. Mantenho a tabela existente no banco para não perder histórico, mas deixa de ser usada pelo app (sem novas escritas/leituras).
-- Efeito prático:
-  - **Adicionar / excluir / editar colaborador**: salva apenas no período selecionado.
-  - **Marcar VAGO**: agora é por período. Quando vago, a tabela mostra `VAGO` no lugar do nome (o nome original não aparece). Em outros períodos o colaborador continua com o nome.
-  - **Ocorrências**: já eram por período, mas agora passam a apontar para o `period_employee` certo, então removendo um colaborador de um período não some com o do outro.
+## 1. Página principal mais limpa
 
-## 2. Contador total de colaboradores
+- Remover do `Dashboard` os cards: Atrasos, Troca casada, Faltas, Saídas antecipadas e Resumo por colaborador.
+- Manter apenas: cabeçalho do período, contador de colaboradores/vagos, e a `SheetTable`.
+- Mover/garantir que todas as métricas e resumos vivam apenas em `/analise`.
 
-No cabeçalho da folha, ao lado do título, mostrar `N colaboradores` (e `M vagos` quando houver), contando os do período atual.
+## 2. Campo de busca de colaborador
 
-## 3. Página de Configurações (modal centralizado)
+- Componente reutilizável `EmployeeSearch` com input + dropdown (Popover + Command):
+  - Página principal: opções = colaboradores do **período atual**.
+  - Página de análise: opções = união distinta de todos os `period_employees` do usuário (todos os períodos).
+- Filtra a tabela / lista por seleção ou texto digitado.
 
-Substituo o botão "Cargos" e o `ThemeToggle` do header por um único botão "Configurações" que abre um modal central com 3 abas/cartões:
+## 3. Bug do sidebar
 
-- **Aparência** — alternância tema claro/escuro.
-- **Cargos** — reaproveita o `RolesManager` existente embutido na aba.
-- **Conta** — formulário "Redefinir senha" (informa email; usa `supabase.auth.resetPasswordForEmail` para usuário logado).
+- Refatorar `AppSidebar` com estado único `expanded: boolean` controlado por clique no botão hambúrguer. Toggle real (não combina hover + pin que estava travando). Persistir em `localStorage`. Largura `w-14` ↔ `w-64` com `transition-[width] duration-300 ease-out`. Sem listeners de `mouseenter/leave` conflitando.
 
-Visual limpo, bordas suaves, sem ruído.
+## 4. Escala semanal automática na criação do período
 
-## 4. Página de Análise de ocorrências
+- No dialog "Novo período" (em `AppSidebar`), adicionar seletor "Semana inicial" (Semana 1 / Semana 2) + **mini-calendário visual** mostrando os 7 dias com cor verde (Plantão) e cinza (Folga), atualizando conforme alterna.
+- Escalas fixas:
+  - **S1**: Seg P, Ter F, Qua P, Qui F, Sex F, Sáb P, Dom P
+  - **S2**: Seg F, Ter P, Qua F, Qui P, Sex P, Sáb F, Dom F
+- Função `computeScheduleDays(start, end, startingWeek)`: itera dias, alterna S1↔S2 a cada semana ISO (segunda como início), atribui Plantão/Folga.
+- Ao criar período, popular `period_days` com `day_type` calculado. Edição manual posterior em `day-type-cell` segue funcionando (já existe).
+- Aplicar a mesma lógica no trigger do banco? Não — manter no frontend para evitar travar criação se o usuário pular o passo. O default das células sem registro continua sendo "Plantão", então só inserimos as exceções (folgas) + plantões explícitos.
 
-Nova rota `/analise`:
-- Filtro por período (dropdown).
-- Pesquisa por colaborador (input).
-- Cards de resumo (total por tipo: A / TC / F / SA, total de presenças automáticas).
-- Lista detalhada agrupada por colaborador → cada ocorrência com data, tipo, observações (motivo, horário, parceiro de troca, etc., usando `summaryFor`).
-- Linka no menu lateral.
+## 5. Bug da presença automática (verde)
 
-## 5. Sidebar recolhível e moderna
+- Em `SheetTable`, garantir comparação de strings ISO (não `Date`) usando `todayISO()`. Hoje a comparação pode estar usando `<= new Date()` errado.
+- Recalcular sempre que muda `occurrences`, `period_days`, `today`, `period`. Usar `useMemo` com chaves corretas.
+- Excluir dias com tipo "ferias" ou "suspensao" (novos) da regra.
+- React Query: invalidar `["occurrences", periodId]` e `["period_days", periodId]` após mutações já garante repintura.
 
-Refaço a `PeriodSidebar` com largura `w-14` recolhida → `w-64` ao passar o mouse ou clicar (toggle persistente em `localStorage`). Animação `transition-[width] duration-300 ease-out`. Itens com ícones sempre visíveis, labels aparecem ao expandir. Inclui:
-- Logo
-- "Períodos" (lista + criar)
-- "Análise" → navega para `/analise`
-- "Configurações" → abre modal
-- "Sair"
+## 6. VAGO mostra cargo
 
-## 6. Destaque do dia atual + estados visuais
+- Em `SheetTable` e listas: quando `vacant=true`, exibir o nome como "VAGO" mas manter `role` visível abaixo (como já é com não-vagos). Hoje o cargo está oculto quando vago — remover essa condição.
 
-Usar `new Date()` em horário local para identificar a coluna de "hoje".
-- Hoje: borda destacada, fundo `bg-primary/10`, número em destaque.
-- Passado: opacidade normal, foreground um pouco mais claro (`text-muted-foreground/90`).
-- Futuro: opacidade reduzida (`opacity-60`) tanto no header quanto nas células.
-Aplicado tanto no `<th>` quanto no `<td>` correspondente.
+## 7. Férias
 
-## 7. Presença automática (verde)
+- Adicionar dropdown "Férias" no `EmployeeEditDialog` com data inicial/final.
+- Migration: adicionar coluna `day_type` aceitar novos valores `'ferias'` e `'suspensao'` (atual é texto livre, então só convenção). Adicionar tabela `employee_vacations(id, user_id, period_employee_id, start_date, end_date)` com RLS.
+- Ao salvar, regerar visualização: as células dentro do intervalo recebem badge "FÉRIAS" com cor própria (novo token `--occ-fer`).
+- Cada dia continua editável: o `CellEditor` numa célula de férias mostra opções "Posto coberto?" + "Coberto por" (igual falta), sem remover o registro de férias do dia.
+- Edições individuais NÃO removem o intervalo — somente sobrescrevem a célula com a ocorrência específica.
 
-Em qualquer célula `(empregado, dia)`:
-- se `day_type === 'plantao'`,
-- e `data <= hoje`,
-- e a célula **não tem nenhuma ocorrência registrada**,
-→ pinta de verde com etiqueta "P" (Presença) e tooltip "Presença confirmada".
+## 8. Sanção disciplinar (nova ocorrência tipo `SD`)
 
-Não aplica em folgas, dias futuros, ou quando há qualquer ocorrência. Cor verde semântica nova nos tokens (`--occ-p` / `--occ-p-bg`).
+- Migration: adicionar `'SD'` ao enum `occurrence_type`; novas colunas `sanction_kind text` (Advertência verbal/escrita/Suspensão) e `suspension_days int`.
+- No `CellEditor`, novo tipo "Sanção disciplinar" com dropdown e campo condicional de dias quando "Suspensão". Campo de observação (`note` já existe).
+- Token visual `--occ-sd` (roxo).
+- Conta em `/analise`.
+- Dias dentro do intervalo de suspensão também ficam excluídos da regra de presença automática (caso queira marcar como suspensão diária — opcional, por ora ligado só por ocorrência SD individual).
 
-## Detalhes técnicos
+## 9. Ocorrência "Extra" exclusiva para folgas (`EX`)
 
-- Migration nova com `period_employees`, RLS por `user_id`, trigger de `updated_at`, e backfill via `INSERT … SELECT DISTINCT period_id, employee_id …`.
-- Trigger `on_period_insert`: ao criar um período, copia colaboradores do período anterior (mais recente) do mesmo usuário.
-- Atualizar `SheetTable`, `Dashboard`, `EmployeeEditDialog`, queries para usar `period_employees`.
-- Rota nova `src/routes/analise.tsx` + `src/components/settings-dialog.tsx`.
-- Sidebar reescrita (custom, não shadcn Sidebar — é só uma coluna simples com ícones).
+- Migration: adicionar `'EX'` ao enum.
+- Em `CellEditor`: se `day_type === 'folga'`, **único** tipo disponível é "Extra". Se `plantao`, esconder "Extra".
+- Token visual próprio `--occ-ex` (azul-petróleo).
+- Conta em `/analise`.
+
+## 10. Ordenação fixa por cargo
+
+- Helper `sortEmployees(emps)`:
+  - Mapa de ordem: Supervisão=1, Coordenação=2, Backoffice=3, PA=4, Operador de comunicação=5, Operador de monitoramento=6, outros=99.
+  - Dentro de Coord/Back/Op.Com/Op.Mon → ordem alfabética por nome (VAGO mantém nome do cargo, ordenado por `name` mesmo, então "VAGO" cai no fim alfabético — aceitável; mantém na seção).
+  - Supervisão e PA mantêm ordem de cadastro (`position`).
+- Aplicar em: `SheetTable` (linhas), dropdown da página principal, dropdown da análise, listas da `/analise`.
+
+---
+
+## Detalhes técnicos (migrations)
+
+```sql
+-- 1) Novos tipos de ocorrência
+ALTER TYPE occurrence_type ADD VALUE IF NOT EXISTS 'SD';
+ALTER TYPE occurrence_type ADD VALUE IF NOT EXISTS 'EX';
+
+-- 2) Colunas de sanção
+ALTER TABLE occurrences
+  ADD COLUMN sanction_kind text,
+  ADD COLUMN suspension_days int;
+
+-- 3) Tabela de férias
+CREATE TABLE public.employee_vacations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  period_employee_id uuid NOT NULL,
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.employee_vacations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "vacations own all" ON public.employee_vacations
+  FOR ALL TO authenticated USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+CREATE TRIGGER set_updated_at_vacations BEFORE UPDATE ON public.employee_vacations
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+```
+
+---
+
+## Arquivos a criar/editar
+
+**Criar:**
+- `src/components/employee-search.tsx` — input + dropdown reutilizável
+- `src/lib/schedule.ts` — escalas S1/S2 e `computeScheduleDays`
+- `src/components/schedule-preview.tsx` — visualização dos 7 dias S1/S2
+- `src/components/new-period-dialog.tsx` — extraído do sidebar, com escala + preview
+- `src/components/vacation-dialog.tsx` — definir férias do colaborador
+- `src/lib/sort-employees.ts` — ordenação fixa
+
+**Editar:**
+- `src/components/dashboard.tsx` — remover cards de métricas/resumo
+- `src/components/app-sidebar.tsx` — corrigir toggle expand/collapse
+- `src/components/sheet-table.tsx` — VAGO com cargo, presença auto corrigida, exclusão férias/SD-suspensão, ordenação, badges férias/EX/SD
+- `src/components/cell-editor.tsx` — tipos SD e EX condicionais, cobertura em férias
+- `src/components/employee-edit-dialog.tsx` — botão "Férias"
+- `src/routes/analise.tsx` — usar `EmployeeSearch` global + contagens SD/EX/Férias
+- `src/lib/occurrence.ts` — adicionar SD, EX, helpers
+- `src/styles.css` — tokens `--occ-fer`, `--occ-sd`, `--occ-ex`
 
 Posso seguir?
