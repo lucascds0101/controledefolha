@@ -105,7 +105,7 @@ function AnalysisPage() {
   const empMap = useMemo(() => new Map(emps.map((e) => [e.id, e])), [emps]);
 
   const totals = useMemo(() => {
-    const t: Record<OccType, number> = { A: 0, TC: 0, F: 0, SA: 0 };
+    const t: Record<OccType, number> = { A: 0, TC: 0, F: 0, SA: 0, SD: 0, EX: 0 };
     for (const o of occs) if (o.type in t) t[o.type]++;
     return t;
   }, [occs]);
