@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      employee_vacations: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          period_employee_id: string
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          period_employee_id: string
+          start_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          period_employee_id?: string
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           active: boolean
@@ -66,6 +96,8 @@ export type Database = {
           quantity: number | null
           reason: string | null
           return_time: string | null
+          sanction_kind: string | null
+          suspension_days: number | null
           type: Database["public"]["Enums"]["occurrence_type"]
           updated_at: string
           user_id: string
@@ -85,6 +117,8 @@ export type Database = {
           quantity?: number | null
           reason?: string | null
           return_time?: string | null
+          sanction_kind?: string | null
+          suspension_days?: number | null
           type: Database["public"]["Enums"]["occurrence_type"]
           updated_at?: string
           user_id: string
@@ -104,6 +138,8 @@ export type Database = {
           quantity?: number | null
           reason?: string | null
           return_time?: string | null
+          sanction_kind?: string | null
+          suspension_days?: number | null
           type?: Database["public"]["Enums"]["occurrence_type"]
           updated_at?: string
           user_id?: string
@@ -273,7 +309,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      occurrence_type: "A" | "HE" | "F" | "AT" | "SA" | "FO" | "TC"
+      occurrence_type:
+        | "A"
+        | "HE"
+        | "F"
+        | "AT"
+        | "SA"
+        | "FO"
+        | "TC"
+        | "SD"
+        | "EX"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -401,7 +446,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      occurrence_type: ["A", "HE", "F", "AT", "SA", "FO", "TC"],
+      occurrence_type: ["A", "HE", "F", "AT", "SA", "FO", "TC", "SD", "EX"],
     },
   },
 } as const
