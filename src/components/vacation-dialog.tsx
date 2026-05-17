@@ -68,13 +68,14 @@ export function VacationDialog({
       const { error } = await supabase.from("employee_vacations").insert({
         user_id: u.user!.id,
         period_employee_id: periodEmployeeId,
+        source_employee_id: sourceEmployeeId,
         start_date: start,
         end_date: end,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["vacations", periodEmployeeId] });
+      qc.invalidateQueries({ queryKey: ["vacations"] });
       qc.invalidateQueries({ queryKey: ["vacations-by-period"] });
       setStart("");
       setEnd("");
@@ -89,7 +90,7 @@ export function VacationDialog({
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["vacations", periodEmployeeId] });
+      qc.invalidateQueries({ queryKey: ["vacations"] });
       qc.invalidateQueries({ queryKey: ["vacations-by-period"] });
     },
   });
