@@ -149,6 +149,7 @@ export function EmployeeEditDialog({
         open={vacOpen}
         onOpenChange={setVacOpen}
         periodEmployeeId={employee?.id ?? null}
+        sourceEmployeeId={employee?.source_employee_id ?? null}
         employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
       />
     </>
