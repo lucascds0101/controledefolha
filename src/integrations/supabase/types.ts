@@ -20,6 +20,7 @@ export type Database = {
           end_date: string
           id: string
           period_employee_id: string
+          source_employee_id: string | null
           start_date: string
           updated_at: string
           user_id: string
@@ -29,6 +30,7 @@ export type Database = {
           end_date: string
           id?: string
           period_employee_id: string
+          source_employee_id?: string | null
           start_date: string
           updated_at?: string
           user_id: string
@@ -38,6 +40,7 @@ export type Database = {
           end_date?: string
           id?: string
           period_employee_id?: string
+          source_employee_id?: string | null
           start_date?: string
           updated_at?: string
           user_id?: string
