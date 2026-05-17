@@ -33,6 +33,7 @@ import { DayTypeCell, type DayType } from "./day-type-cell";
 type Role = { id: string; name: string };
 type PE = {
   id: string;
+  source_employee_id: string | null;
   name: string;
   role: string | null;
   position: number;
@@ -53,6 +54,13 @@ type Occurrence = {
   note: string | null;
 };
 type PeriodDay = { id: string; date: string; day_type: NonNullable<DayType> };
+type Vacation = {
+  id: string;
+  period_employee_id: string | null;
+  source_employee_id: string | null;
+  start_date: string;
+  end_date: string;
+};
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
