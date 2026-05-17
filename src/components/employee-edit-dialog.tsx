@@ -27,6 +27,7 @@ type Role = { id: string; name: string };
 
 export type EmployeeEditable = {
   id: string;
+  source_employee_id: string | null;
   name: string;
   role: string | null;
   vacant: boolean;
@@ -148,6 +149,7 @@ export function EmployeeEditDialog({
         open={vacOpen}
         onOpenChange={setVacOpen}
         periodEmployeeId={employee?.id ?? null}
+        sourceEmployeeId={employee?.source_employee_id ?? null}
         employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
       />
     </>

@@ -33,6 +33,7 @@ import { DayTypeCell, type DayType } from "./day-type-cell";
 type Role = { id: string; name: string };
 type PE = {
   id: string;
+  source_employee_id: string | null;
   name: string;
   role: string | null;
   position: number;
@@ -53,6 +54,13 @@ type Occurrence = {
   note: string | null;
 };
 type PeriodDay = { id: string; date: string; day_type: NonNullable<DayType> };
+type Vacation = {
+  id: string;
+  period_employee_id: string | null;
+  source_employee_id: string | null;
+  start_date: string;
+  end_date: string;
+};
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
@@ -76,7 +84,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("period_employees")
-        .select("id,name,role,position,vacant")
+        .select("id,source_employee_id,name,role,position,vacant")
         .eq("period_id", period.id)
         .order("position", { ascending: true })
         .order("created_at", { ascending: true });
@@ -110,6 +118,65 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       return (data ?? []) as PeriodDay[];
     },
   });
+
+  const peIds = useMemo(() => employees.map((e) => e.id), [employees]);
+  const sourceIds = useMemo(
+    () => employees.map((e) => e.source_employee_id).filter((x): x is string => !!x),
+    [employees],
+  );
+
+  const { data: vacations = [] } = useQuery({
+    queryKey: ["vacations-by-period", period.id, peIds.length, sourceIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_vacations")
+        .select("id,period_employee_id,source_employee_id,start_date,end_date")
+        .or(filters.join(","));
+      if (error) throw error;
+      return (data ?? []) as Vacation[];
+    },
+  });
+
+  // Map: period_employee_id -> Set<date ISO> covered by any vacation, clipped
+  // to the current period range so we only paint days within this folha.
+  const vacByEmp = useMemo(() => {
+    const out = new Map<string, Set<string>>();
+    const pstart = period.start_date;
+    const pend = period.end_date;
+    const bySource = new Map<string, PE[]>();
+    for (const e of employees) {
+      if (e.source_employee_id) {
+        const arr = bySource.get(e.source_employee_id) ?? [];
+        arr.push(e);
+        bySource.set(e.source_employee_id, arr);
+      }
+    }
+    for (const v of vacations) {
+      const s = v.start_date > pstart ? v.start_date : pstart;
+      const e = v.end_date < pend ? v.end_date : pend;
+      if (s > e) continue;
+      const dates = eachDay(s, e);
+      const targets: string[] = [];
+      if (v.period_employee_id) targets.push(v.period_employee_id);
+      if (v.source_employee_id) {
+        const matches = bySource.get(v.source_employee_id) ?? [];
+        for (const pe of matches) targets.push(pe.id);
+      }
+      for (const t of targets) {
+        let set = out.get(t);
+        if (!set) {
+          set = new Set();
+          out.set(t, set);
+        }
+        for (const d of dates) set.add(d);
+      }
+    }
+    return out;
+  }, [vacations, employees, period.start_date, period.end_date]);
 
   const dayTypeMap = useMemo(() => {
     const m = new Map<string, PeriodDay>();
@@ -350,6 +417,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           onClick={() =>
                             setEditingEmp({
                               id: emp.id,
+                              source_employee_id: emp.source_employee_id,
                               name: emp.name,
                               role: emp.role,
                               vacant: emp.vacant,
@@ -381,7 +449,9 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const f = fmtDay(d);
                     const ds = dayState(d, today);
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
+                    const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
                     const autoPresent =
+                      !onVac &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -395,6 +465,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           ds === "today" && "bg-primary/5 ring-1 ring-inset ring-primary/30",
                           ds === "future" && "opacity-60",
                           autoPresent && "bg-occ-p-bg/60",
+                          onVac && "bg-occ-fer-bg/60",
                         )}
                         onClick={() =>
                           setEditing({
@@ -416,7 +487,15 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         }
                       >
                         <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
-                          {items.length === 0 ? (
+                          {onVac && (
+                            <span
+                              title="Férias"
+                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-fer-bg text-occ-fer"
+                            >
+                              FER
+                            </span>
+                          )}
+                          {items.length === 0 && !onVac ? (
                             autoPresent ? (
                               <span
                                 title="Presença confirmada (plantão sem ocorrências)"
@@ -427,25 +506,24 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                             ) : (
                               <span className="text-muted-foreground/30 text-xs">+</span>
                             )
-                          ) : (
-                            items.map((it) => {
-                              const m = OCC_META[it.type];
-                              if (!m) return null;
-                              return (
-                                <span
-                                  key={it.id}
-                                  title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
-                                  className={cn(
-                                    "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
-                                    m.bg,
-                                    m.text,
-                                  )}
-                                >
-                                  {m.label}
-                                </span>
-                              );
-                            })
-                          )}
+                          ) : null}
+                          {items.map((it) => {
+                            const m = OCC_META[it.type];
+                            if (!m) return null;
+                            return (
+                              <span
+                                key={it.id}
+                                title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
+                                className={cn(
+                                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                  m.bg,
+                                  m.text,
+                                )}
+                              >
+                                {m.label}
+                              </span>
+                            );
+                          })}
                         </div>
                       </td>
                     );
