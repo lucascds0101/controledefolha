@@ -449,7 +449,9 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const f = fmtDay(d);
                     const ds = dayState(d, today);
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
+                    const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
                     const autoPresent =
+                      !onVac &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -463,6 +465,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           ds === "today" && "bg-primary/5 ring-1 ring-inset ring-primary/30",
                           ds === "future" && "opacity-60",
                           autoPresent && "bg-occ-p-bg/60",
+                          onVac && "bg-occ-fer-bg/60",
                         )}
                         onClick={() =>
                           setEditing({
@@ -484,7 +487,15 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         }
                       >
                         <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
-                          {items.length === 0 ? (
+                          {onVac && (
+                            <span
+                              title="Férias"
+                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-fer-bg text-occ-fer"
+                            >
+                              FER
+                            </span>
+                          )}
+                          {items.length === 0 && !onVac ? (
                             autoPresent ? (
                               <span
                                 title="Presença confirmada (plantão sem ocorrências)"
@@ -495,7 +506,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                             ) : (
                               <span className="text-muted-foreground/30 text-xs">+</span>
                             )
-                          ) : (
+                          ) : null}
                             items.map((it) => {
                               const m = OCC_META[it.type];
                               if (!m) return null;
