@@ -507,24 +507,23 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               <span className="text-muted-foreground/30 text-xs">+</span>
                             )
                           ) : null}
-                            items.map((it) => {
-                              const m = OCC_META[it.type];
-                              if (!m) return null;
-                              return (
-                                <span
-                                  key={it.id}
-                                  title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
-                                  className={cn(
-                                    "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
-                                    m.bg,
-                                    m.text,
-                                  )}
-                                >
-                                  {m.label}
-                                </span>
-                              );
-                            })
-                          )}
+                          {items.map((it) => {
+                            const m = OCC_META[it.type];
+                            if (!m) return null;
+                            return (
+                              <span
+                                key={it.id}
+                                title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
+                                className={cn(
+                                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                  m.bg,
+                                  m.text,
+                                )}
+                              >
+                                {m.label}
+                              </span>
+                            );
+                          })}
                         </div>
                       </td>
                     );
