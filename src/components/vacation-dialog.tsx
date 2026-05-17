@@ -18,23 +18,33 @@ export function VacationDialog({
   open,
   onOpenChange,
   periodEmployeeId,
+  sourceEmployeeId,
   employeeName,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   periodEmployeeId: string | null;
+  sourceEmployeeId: string | null;
   employeeName: string;
 }) {
   const qc = useQueryClient();
 
   const { data: existing = [] } = useQuery({
-    queryKey: ["vacations", periodEmployeeId],
+    queryKey: ["vacations", periodEmployeeId, sourceEmployeeId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Show vacations linked to this period-employee OR to its source
+      // employee (so vacations show up across all periods of the same person).
+      let q = supabase
         .from("employee_vacations")
-        .select("id,start_date,end_date")
-        .eq("period_employee_id", periodEmployeeId!)
-        .order("start_date");
+        .select("id,start_date,end_date");
+      if (sourceEmployeeId) {
+        q = q.or(
+          `source_employee_id.eq.${sourceEmployeeId},period_employee_id.eq.${periodEmployeeId}`,
+        );
+      } else {
+        q = q.eq("period_employee_id", periodEmployeeId!);
+      }
+      const { data, error } = await q.order("start_date");
       if (error) throw error;
       return data ?? [];
     },
