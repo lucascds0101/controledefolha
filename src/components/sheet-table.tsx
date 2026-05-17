@@ -417,6 +417,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           onClick={() =>
                             setEditingEmp({
                               id: emp.id,
+                              source_employee_id: emp.source_employee_id,
                               name: emp.name,
                               role: emp.role,
                               vacant: emp.vacant,
