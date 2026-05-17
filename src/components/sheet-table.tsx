@@ -119,6 +119,65 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     },
   });
 
+  const peIds = useMemo(() => employees.map((e) => e.id), [employees]);
+  const sourceIds = useMemo(
+    () => employees.map((e) => e.source_employee_id).filter((x): x is string => !!x),
+    [employees],
+  );
+
+  const { data: vacations = [] } = useQuery({
+    queryKey: ["vacations-by-period", period.id, peIds.length, sourceIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_vacations")
+        .select("id,period_employee_id,source_employee_id,start_date,end_date")
+        .or(filters.join(","));
+      if (error) throw error;
+      return (data ?? []) as Vacation[];
+    },
+  });
+
+  // Map: period_employee_id -> Set<date ISO> covered by any vacation, clipped
+  // to the current period range so we only paint days within this folha.
+  const vacByEmp = useMemo(() => {
+    const out = new Map<string, Set<string>>();
+    const pstart = period.start_date;
+    const pend = period.end_date;
+    const bySource = new Map<string, PE[]>();
+    for (const e of employees) {
+      if (e.source_employee_id) {
+        const arr = bySource.get(e.source_employee_id) ?? [];
+        arr.push(e);
+        bySource.set(e.source_employee_id, arr);
+      }
+    }
+    for (const v of vacations) {
+      const s = v.start_date > pstart ? v.start_date : pstart;
+      const e = v.end_date < pend ? v.end_date : pend;
+      if (s > e) continue;
+      const dates = eachDay(s, e);
+      const targets: string[] = [];
+      if (v.period_employee_id) targets.push(v.period_employee_id);
+      if (v.source_employee_id) {
+        const matches = bySource.get(v.source_employee_id) ?? [];
+        for (const pe of matches) targets.push(pe.id);
+      }
+      for (const t of targets) {
+        let set = out.get(t);
+        if (!set) {
+          set = new Set();
+          out.set(t, set);
+        }
+        for (const d of dates) set.add(d);
+      }
+    }
+    return out;
+  }, [vacations, employees, period.start_date, period.end_date]);
+
   const dayTypeMap = useMemo(() => {
     const m = new Map<string, PeriodDay>();
     for (const p of periodDays) m.set(p.date, p);
