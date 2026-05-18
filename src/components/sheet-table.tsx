@@ -520,7 +520,8 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                             )
                           ) : null}
                           {items.map((it) => {
-                            const m = OCC_META[it.type];
+                            const ate = isAtestado(it);
+                            const m = ate ? ATESTADO_META : OCC_META[it.type];
                             if (!m) return null;
                             return (
                               <span
