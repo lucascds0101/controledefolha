@@ -120,30 +120,11 @@ export function NewPeriodDialog({
             </div>
           </div>
 
-          <div className="space-y-2 pt-1">
-            <Label className="text-sm">Semana inicial da escala</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["S1", "S2"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setScale(s)}
-                  className={cn(
-                    "rounded-md border px-3 py-2 text-sm font-medium transition",
-                    scale === s
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "hover:bg-accent",
-                  )}
-                >
-                  {s === "S1" ? "Semana 1" : "Semana 2"}
-                </button>
-              ))}
-            </div>
-            <SchedulePreview scale={scale} />
-            <p className="text-[11px] text-muted-foreground">
-              A escala alterna automaticamente entre Semana 1 e Semana 2 a cada semana
-              do período. Você pode editar qualquer dia manualmente depois.
-            </p>
+          <div className="rounded-md border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+            A escala é detectada automaticamente. Ao definir qualquer dia da
+            tabela como <strong>Plantão</strong> ou <strong>Folga</strong>, o
+            sistema preenche os demais dias seguindo a alternância entre Semana
+            1 e Semana 2. Dias editados manualmente são preservados.
           </div>
         </div>
         <DialogFooter>
