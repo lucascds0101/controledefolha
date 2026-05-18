@@ -12,8 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OCC_META, eachDay, fmtDay, summaryFor, type OccType } from "@/lib/occurrence";
+import { OCC_META, ATESTADO_META, eachDay, fmtDay, isAtestado, summaryFor, type OccType } from "@/lib/occurrence";
 import { todayISO, dayState } from "@/lib/date-utils";
+import { mondayKey } from "@/lib/schedule";
 import { sortEmployees } from "@/lib/sort-employees";
 import { cn } from "@/lib/utils";
 import { CellEditor, type CellOccurrence } from "./cell-editor";
