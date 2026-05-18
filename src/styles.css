@@ -120,6 +120,8 @@
   --occ-ex-bg: oklch(0.93 0.07 200);
   --occ-fer: oklch(0.55 0.14 220);
   --occ-fer-bg: oklch(0.93 0.06 220);
+  --occ-ate: oklch(0.5 0.12 195);
+  --occ-ate-bg: oklch(0.93 0.07 195);
 
   --day-plantao: oklch(0.45 0.18 255);
   --day-plantao-bg: oklch(0.93 0.05 255);
