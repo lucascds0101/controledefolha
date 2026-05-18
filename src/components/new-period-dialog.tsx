@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { SchedulePreview } from "./schedule-preview";
-import { computeScheduleDays, type WeekScale } from "@/lib/schedule";
+import { computeScheduleDays } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Period } from "./period-sidebar";
@@ -47,14 +46,12 @@ export function NewPeriodDialog({
   const [start, setStart] = useState(def.start_date);
   const [end, setEnd] = useState(def.end_date);
   const [label, setLabel] = useState(def.label);
-  const [scale, setScale] = useState<WeekScale>("S1");
 
   useEffect(() => {
     if (open) {
       setStart(def.start_date);
       setEnd(def.end_date);
       setLabel(def.label);
-      setScale("S1");
     }
   }, [open, def]);
 
@@ -69,8 +66,9 @@ export function NewPeriodDialog({
         .single();
       if (error) throw error;
 
-      // Auto-populate period_days for the entire period range.
-      const days = computeScheduleDays(start, end, scale);
+      // Seed the schedule with S1 as a starting reference. The user can
+      // flip any day manually and the rest of the period is re-inferred.
+      const days = computeScheduleDays(start, end, "S1");
       if (days.length) {
         const { error: pdErr } = await supabase.from("period_days").insert(
           days.map((d) => ({
@@ -122,30 +120,11 @@ export function NewPeriodDialog({
             </div>
           </div>
 
-          <div className="space-y-2 pt-1">
-            <Label className="text-sm">Semana inicial da escala</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["S1", "S2"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setScale(s)}
-                  className={cn(
-                    "rounded-md border px-3 py-2 text-sm font-medium transition",
-                    scale === s
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "hover:bg-accent",
-                  )}
-                >
-                  {s === "S1" ? "Semana 1" : "Semana 2"}
-                </button>
-              ))}
-            </div>
-            <SchedulePreview scale={scale} />
-            <p className="text-[11px] text-muted-foreground">
-              A escala alterna automaticamente entre Semana 1 e Semana 2 a cada semana
-              do período. Você pode editar qualquer dia manualmente depois.
-            </p>
+          <div className="rounded-md border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+            A escala é detectada automaticamente. Ao definir qualquer dia da
+            tabela como <strong>Plantão</strong> ou <strong>Folga</strong>, o
+            sistema preenche os demais dias seguindo a alternância entre Semana
+            1 e Semana 2. Dias editados manualmente são preservados.
           </div>
         </div>
         <DialogFooter>

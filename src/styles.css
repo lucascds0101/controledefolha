@@ -54,6 +54,8 @@
   --color-occ-ex-bg: var(--occ-ex-bg);
   --color-occ-fer: var(--occ-fer);
   --color-occ-fer-bg: var(--occ-fer-bg);
+  --color-occ-ate: var(--occ-ate);
+  --color-occ-ate-bg: var(--occ-ate-bg);
 
   /* Day type tags */
   --color-day-plantao: var(--day-plantao);
@@ -118,6 +120,8 @@
   --occ-ex-bg: oklch(0.93 0.07 200);
   --occ-fer: oklch(0.55 0.14 220);
   --occ-fer-bg: oklch(0.93 0.06 220);
+  --occ-ate: oklch(0.5 0.12 195);
+  --occ-ate-bg: oklch(0.93 0.07 195);
 
   --day-plantao: oklch(0.45 0.18 255);
   --day-plantao-bg: oklch(0.93 0.05 255);
@@ -179,6 +183,8 @@
   --occ-ex-bg: oklch(0.3 0.08 200);
   --occ-fer: oklch(0.78 0.14 220);
   --occ-fer-bg: oklch(0.3 0.07 220);
+  --occ-ate: oklch(0.78 0.12 195);
+  --occ-ate-bg: oklch(0.3 0.08 195);
 
   --day-plantao: oklch(0.78 0.16 255);
   --day-plantao-bg: oklch(0.3 0.08 255);

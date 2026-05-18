@@ -4,6 +4,7 @@ import {
   ClipboardList,
   CalendarDays,
   BarChart3,
+  Users,
   Settings as SettingsIcon,
   LogOut,
   Calendar,
@@ -202,6 +203,7 @@ export function AppSidebar({
 
         <div className="py-2 space-y-0.5">
           <NavItem to="/" icon={CalendarDays} label="Folha" active={path === "/"} />
+          <NavItem to="/colaboradores" icon={Users} label="Colaboradores" active={path.startsWith("/colaboradores")} />
           <NavItem to="/analise" icon={BarChart3} label="Análise" active={path === "/analise"} />
         </div>
 

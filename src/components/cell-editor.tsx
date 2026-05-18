@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
 import {
   OCC_META,
   OCC_TYPES,
+  ATESTADO_META,
   FALTA_REASONS,
   SAIDA_REASONS,
+  isAtestado,
   type OccType,
 } from "@/lib/occurrence";
+import type { DayType } from "./day-type-cell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +62,7 @@ export function CellEditor({
   onOpenChange,
   employeeName,
   date,
+  dayType,
   initial,
   onSave,
 }: {
@@ -66,15 +70,26 @@ export function CellEditor({
   onOpenChange: (o: boolean) => void;
   employeeName: string;
   date: string;
+  dayType?: DayType;
   initial: CellOccurrence[];
   onSave: (rows: CellOccurrence[]) => Promise<void>;
 }) {
   const [rows, setRows] = useState<CellOccurrence[]>(initial);
   const [saving, setSaving] = useState(false);
 
+  // Extra (EX) is only allowed on Folga days; hide it on Plantão.
+  const availableTypes = useMemo<OccType[]>(() => {
+    if (dayType === "plantao") return OCC_TYPES.filter((t) => t !== "EX");
+    if (dayType === "folga") return ["EX"];
+    return OCC_TYPES;
+  }, [dayType]);
+
   useEffect(() => {
-    if (open) setRows(initial.length ? initial : [{ ...EMPTY }]);
-  }, [open, initial]);
+    if (open) {
+      const defaultType: OccType = dayType === "folga" ? "EX" : "A";
+      setRows(initial.length ? initial : [{ ...EMPTY, type: defaultType }]);
+    }
+  }, [open, initial, dayType]);
 
   function update(i: number, patch: Partial<CellOccurrence>) {
     setRows((r) => r.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
@@ -97,7 +112,8 @@ export function CellEditor({
 
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 sheet-scroll">
           {rows.map((row, i) => {
-            const meta = OCC_META[row.type];
+            const ate = isAtestado(row);
+            const meta = ate ? ATESTADO_META : OCC_META[row.type];
             return (
               <div key={i} className={cn("rounded-lg border p-3 space-y-3", meta.bg)}>
                 <div className="flex items-start gap-2">
@@ -113,7 +129,7 @@ export function CellEditor({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {OCC_TYPES.map((t) => (
+                        {availableTypes.map((t) => (
                           <SelectItem key={t} value={t}>
                             {OCC_META[t].full}
                           </SelectItem>
