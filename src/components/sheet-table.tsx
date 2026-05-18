@@ -352,23 +352,32 @@ export function SheetTable({ period, search }: { period: Period; search: string 
           </Dialog>
         </div>
 
-        <div className="overflow-x-auto sheet-scroll">
+        <div className="overflow-auto sheet-scroll max-h-[calc(100vh-12rem)]">
           <table className="border-separate border-spacing-0 text-sm w-full">
-            <thead className="sticky top-0 z-20">
+            <thead className="sticky top-0 z-30">
               <tr>
-                <th className="sticky left-0 z-30 bg-card border-b border-r min-w-[240px] text-left px-3 py-2 font-medium text-muted-foreground">
+                <th className="sticky left-0 top-0 z-40 bg-card border-b border-r min-w-[240px] text-left px-3 py-2 font-medium text-muted-foreground">
                   Colaborador
                 </th>
-                {days.map((d) => {
+                {days.map((d, idx) => {
                   const f = fmtDay(d);
                   const pd = dayTypeMap.get(d);
                   const ds = dayState(d, today);
+                  // Weekly banding: alternate subtle background per Mon-Sun week.
+                  const wkKey = mondayKey(d);
+                  const wkIndex = Array.from(
+                    new Set(days.map((x) => mondayKey(x))),
+                  ).indexOf(wkKey);
+                  const isFirstOfWeek =
+                    idx === 0 || mondayKey(days[idx - 1]) !== wkKey;
                   return (
                     <th
                       key={d}
                       className={cn(
                         "border-b border-r px-1 py-1.5 font-medium text-muted-foreground min-w-[64px] align-top transition-colors",
                         f.isWeekend ? "bg-muted/40" : "bg-card",
+                        wkIndex % 2 === 1 && "bg-accent/10",
+                        isFirstOfWeek && "border-l-2 border-l-primary/30",
                         ds === "today" && "bg-primary/10 ring-1 ring-primary/40 relative",
                         ds === "future" && "opacity-60",
                       )}
@@ -384,6 +393,8 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       </div>
                       <DayTypeCell
                         periodId={period.id}
+                        periodStart={period.start_date}
+                        periodEnd={period.end_date}
                         date={d}
                         current={pd?.day_type ?? null}
                         existingId={pd?.id}
