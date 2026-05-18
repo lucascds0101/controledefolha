@@ -566,6 +566,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
           onOpenChange={(o) => !o && setEditing(null)}
           employeeName={editing.employee.vacant ? "VAGO" : editing.employee.name}
           date={editing.date}
+          dayType={dayTypeMap.get(editing.date)?.day_type ?? null}
           initial={editing.rows}
           onSave={async (r) => saveCell.mutateAsync(r)}
         />
