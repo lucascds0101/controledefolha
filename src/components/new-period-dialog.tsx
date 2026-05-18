@@ -46,14 +46,12 @@ export function NewPeriodDialog({
   const [start, setStart] = useState(def.start_date);
   const [end, setEnd] = useState(def.end_date);
   const [label, setLabel] = useState(def.label);
-  const [scale, setScale] = useState<WeekScale>("S1");
 
   useEffect(() => {
     if (open) {
       setStart(def.start_date);
       setEnd(def.end_date);
       setLabel(def.label);
-      setScale("S1");
     }
   }, [open, def]);
 
@@ -68,8 +66,9 @@ export function NewPeriodDialog({
         .single();
       if (error) throw error;
 
-      // Auto-populate period_days for the entire period range.
-      const days = computeScheduleDays(start, end, scale);
+      // Seed the schedule with S1 as a starting reference. The user can
+      // flip any day manually and the rest of the period is re-inferred.
+      const days = computeScheduleDays(start, end, "S1");
       if (days.length) {
         const { error: pdErr } = await supabase.from("period_days").insert(
           days.map((d) => ({
