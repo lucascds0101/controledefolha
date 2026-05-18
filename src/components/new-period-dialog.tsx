@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { SchedulePreview } from "./schedule-preview";
-import { computeScheduleDays, type WeekScale } from "@/lib/schedule";
+import { computeScheduleDays } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Period } from "./period-sidebar";
