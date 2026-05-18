@@ -62,6 +62,7 @@ export function CellEditor({
   onOpenChange,
   employeeName,
   date,
+  dayType,
   initial,
   onSave,
 }: {
@@ -69,11 +70,19 @@ export function CellEditor({
   onOpenChange: (o: boolean) => void;
   employeeName: string;
   date: string;
+  dayType?: DayType;
   initial: CellOccurrence[];
   onSave: (rows: CellOccurrence[]) => Promise<void>;
 }) {
   const [rows, setRows] = useState<CellOccurrence[]>(initial);
   const [saving, setSaving] = useState(false);
+
+  // Extra (EX) is only allowed on Folga days; hide it on Plantão.
+  const availableTypes = useMemo<OccType[]>(() => {
+    if (dayType === "plantao") return OCC_TYPES.filter((t) => t !== "EX");
+    if (dayType === "folga") return ["EX"];
+    return OCC_TYPES;
+  }, [dayType]);
 
   useEffect(() => {
     if (open) setRows(initial.length ? initial : [{ ...EMPTY }]);
