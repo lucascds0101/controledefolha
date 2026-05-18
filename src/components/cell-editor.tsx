@@ -85,8 +85,11 @@ export function CellEditor({
   }, [dayType]);
 
   useEffect(() => {
-    if (open) setRows(initial.length ? initial : [{ ...EMPTY }]);
-  }, [open, initial]);
+    if (open) {
+      const defaultType: OccType = dayType === "folga" ? "EX" : "A";
+      setRows(initial.length ? initial : [{ ...EMPTY, type: defaultType }]);
+    }
+  }, [open, initial, dayType]);
 
   function update(i: number, patch: Partial<CellOccurrence>) {
     setRows((r) => r.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
