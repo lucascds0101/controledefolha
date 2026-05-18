@@ -4,57 +4,37 @@ export const OCC_META: Record<
   OccType,
   { label: string; full: string; bg: string; text: string; ring: string }
 > = {
-  A: {
-    label: "A",
-    full: "Atraso",
-    bg: "bg-occ-a-bg",
-    text: "text-occ-a",
-    ring: "ring-occ-a/40",
-  },
-  TC: {
-    label: "TC",
-    full: "Troca casada",
-    bg: "bg-occ-tc-bg",
-    text: "text-occ-tc",
-    ring: "ring-occ-tc/40",
-  },
-  F: {
-    label: "F",
-    full: "Falta",
-    bg: "bg-occ-f-bg",
-    text: "text-occ-f",
-    ring: "ring-occ-f/40",
-  },
-  SA: {
-    label: "SA",
-    full: "Saída antecipada",
-    bg: "bg-occ-sa-bg",
-    text: "text-occ-sa",
-    ring: "ring-occ-sa/40",
-  },
-  SD: {
-    label: "SD",
-    full: "Sanção disciplinar",
-    bg: "bg-occ-sd-bg",
-    text: "text-occ-sd",
-    ring: "ring-occ-sd/40",
-  },
-  EX: {
-    label: "EX",
-    full: "Extra",
-    bg: "bg-occ-ex-bg",
-    text: "text-occ-ex",
-    ring: "ring-occ-ex/40",
-  },
+  A: { label: "A", full: "Atraso", bg: "bg-occ-a-bg", text: "text-occ-a", ring: "ring-occ-a/40" },
+  TC: { label: "TC", full: "Troca casada", bg: "bg-occ-tc-bg", text: "text-occ-tc", ring: "ring-occ-tc/40" },
+  F: { label: "F", full: "Falta", bg: "bg-occ-f-bg", text: "text-occ-f", ring: "ring-occ-f/40" },
+  SA: { label: "SA", full: "Saída antecipada", bg: "bg-occ-sa-bg", text: "text-occ-sa", ring: "ring-occ-sa/40" },
+  SD: { label: "SD", full: "Sanção disciplinar", bg: "bg-occ-sd-bg", text: "text-occ-sd", ring: "ring-occ-sd/40" },
+  EX: { label: "EX", full: "Extra", bg: "bg-occ-ex-bg", text: "text-occ-ex", ring: "ring-occ-ex/40" },
 };
 
 export const OCC_TYPES: OccType[] = ["A", "TC", "F", "SA", "SD", "EX"];
+
+// Visual override for Atestado (a special kind of Falta)
+export const ATESTADO_META = {
+  label: "ATE",
+  full: "Atestado",
+  bg: "bg-occ-ate-bg",
+  text: "text-occ-ate",
+  ring: "ring-occ-ate/40",
+};
 
 export const FALTA_REASONS = [
   "Sem contato",
   "Injustificado",
   "Atestado",
   "Abono",
+  "Hospital",
+  "Prob. pessoal",
+  "Licença",
+  "Prob. VT",
+  "Afastamento",
+  "Desligamento",
+  "Outros",
 ] as const;
 
 export const SAIDA_REASONS = [
@@ -68,6 +48,10 @@ export const SANCTION_KINDS = [
   "Advertência escrita",
   "Suspensão",
 ] as const;
+
+export function isAtestado(o: { type: OccType; reason?: string | null }): boolean {
+  return o.type === "F" && o.reason === "Atestado";
+}
 
 export function eachDay(start: string, end: string): string[] {
   const out: string[] = [];
