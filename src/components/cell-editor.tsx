@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
 import {
   OCC_META,
   OCC_TYPES,
+  ATESTADO_META,
   FALTA_REASONS,
   SAIDA_REASONS,
+  isAtestado,
   type OccType,
 } from "@/lib/occurrence";
+import type { DayType } from "./day-type-cell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
