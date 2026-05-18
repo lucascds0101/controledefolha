@@ -14,6 +14,7 @@ import { Route as ColaboradoresRouteImport } from './routes/colaboradores'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AnaliseRouteImport } from './routes/analise'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ColaboradoresIdRouteImport } from './routes/colaboradores.$id'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -40,34 +41,54 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ColaboradoresIdRoute = ColaboradoresIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ColaboradoresRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/auth': typeof AuthRoute
-  '/colaboradores': typeof ColaboradoresRoute
+  '/colaboradores': typeof ColaboradoresRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
+  '/colaboradores/$id': typeof ColaboradoresIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/auth': typeof AuthRoute
-  '/colaboradores': typeof ColaboradoresRoute
+  '/colaboradores': typeof ColaboradoresRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
+  '/colaboradores/$id': typeof ColaboradoresIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/auth': typeof AuthRoute
-  '/colaboradores': typeof ColaboradoresRoute
+  '/colaboradores': typeof ColaboradoresRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
+  '/colaboradores/$id': typeof ColaboradoresIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/analise' | '/auth' | '/colaboradores' | '/reset-password'
+  fullPaths:
+    | '/'
+    | '/analise'
+    | '/auth'
+    | '/colaboradores'
+    | '/reset-password'
+    | '/colaboradores/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/analise' | '/auth' | '/colaboradores' | '/reset-password'
+  to:
+    | '/'
+    | '/analise'
+    | '/auth'
+    | '/colaboradores'
+    | '/reset-password'
+    | '/colaboradores/$id'
   id:
     | '__root__'
     | '/'
@@ -75,13 +96,14 @@ export interface FileRouteTypes {
     | '/auth'
     | '/colaboradores'
     | '/reset-password'
+    | '/colaboradores/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnaliseRoute: typeof AnaliseRoute
   AuthRoute: typeof AuthRoute
-  ColaboradoresRoute: typeof ColaboradoresRoute
+  ColaboradoresRoute: typeof ColaboradoresRouteWithChildren
   ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
@@ -122,14 +144,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/colaboradores/$id': {
+      id: '/colaboradores/$id'
+      path: '/$id'
+      fullPath: '/colaboradores/$id'
+      preLoaderRoute: typeof ColaboradoresIdRouteImport
+      parentRoute: typeof ColaboradoresRoute
+    }
   }
 }
+
+interface ColaboradoresRouteChildren {
+  ColaboradoresIdRoute: typeof ColaboradoresIdRoute
+}
+
+const ColaboradoresRouteChildren: ColaboradoresRouteChildren = {
+  ColaboradoresIdRoute: ColaboradoresIdRoute,
+}
+
+const ColaboradoresRouteWithChildren = ColaboradoresRoute._addFileChildren(
+  ColaboradoresRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnaliseRoute: AnaliseRoute,
   AuthRoute: AuthRoute,
-  ColaboradoresRoute: ColaboradoresRoute,
+  ColaboradoresRoute: ColaboradoresRouteWithChildren,
   ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
