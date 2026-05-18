@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      employee_role_history: {
+        Row: {
+          changed_at: string
+          employee_name: string
+          from_role: string | null
+          id: string
+          note: string | null
+          source_employee_id: string | null
+          to_role: string
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          employee_name: string
+          from_role?: string | null
+          id?: string
+          note?: string | null
+          source_employee_id?: string | null
+          to_role: string
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          employee_name?: string
+          from_role?: string | null
+          id?: string
+          note?: string | null
+          source_employee_id?: string | null
+          to_role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       employee_vacations: {
         Row: {
           created_at: string
@@ -163,6 +196,7 @@ export type Database = {
           date: string
           day_type: string
           id: string
+          manual: boolean
           period_id: string
           updated_at: string
           user_id: string
@@ -172,6 +206,7 @@ export type Database = {
           date: string
           day_type: string
           id?: string
+          manual?: boolean
           period_id: string
           updated_at?: string
           user_id: string
@@ -181,6 +216,7 @@ export type Database = {
           date?: string
           day_type?: string
           id?: string
+          manual?: boolean
           period_id?: string
           updated_at?: string
           user_id?: string
