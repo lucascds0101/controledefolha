@@ -46,11 +46,11 @@ export function DayTypeCell({
         return;
       }
 
-      // Persist this day as a manual anchor.
+      // Persist this day (never as a locked anchor — every edit is recomputable).
       if (existingId) {
         const { error } = await supabase
           .from("period_days")
-          .update({ day_type: next, manual: true })
+          .update({ day_type: next, manual: false })
           .eq("id", existingId);
         if (error) throw error;
       } else {
@@ -59,7 +59,7 @@ export function DayTypeCell({
           period_id: periodId,
           date,
           day_type: next,
-          manual: true,
+          manual: false,
         });
         if (error) throw error;
       }
