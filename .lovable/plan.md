@@ -1,29 +1,17 @@
 ## Objetivo
-1. Remover completamente a página de gerenciamento de colaboradores (kanban).
-2. Permitir abrir o perfil do operador clicando no nome dele dentro do grid principal.
 
-## Alterações
+Hoje, ao definir um dia como Plantão ou Folga no cabeçalho da tabela, o dia é gravado como uma **âncora manual** (`manual: true`) — outros ajustes futuros na escala não recalculam esse dia. Você quer que qualquer dia editado seja tratado igual aos dias auto-calculados: uma nova edição em qualquer outro dia deve conseguir recalculá-lo também.
 
-### Remover a página de colaboradores
-- Excluir `src/routes/colaboradores.tsx` (kanban por cargo).
-- Manter `src/routes/colaboradores.$id.tsx` (perfil individual) — continua sendo a rota de destino ao clicar no nome.
-- Remover qualquer link/atalho para `/colaboradores` na navegação:
-  - `src/components/app-sidebar.tsx` (se houver item de menu apontando para a lista).
-  - Qualquer botão/CTA em outras telas apontando para a listagem.
-- `src/routeTree.gen.ts` é regenerado automaticamente; não editar manualmente.
+## Mudança
 
-### Tornar o nome clicável no grid principal
-- Em `src/components/sheet-table.tsx`, na coluna fixa do colaborador:
-  - Envolver o nome (não a linha inteira) em um `<Link to="/colaboradores/$id" params={{ id: source_employee_id ?? period_employee.id }}>`.
-  - Estilo: hover com sublinhado sutil e cor primária; cursor pointer.
-  - Para colaboradores marcados como **VAGO**: exibir "VAGO" sem link (não há perfil a abrir).
-  - O clique no nome NÃO deve disparar edição inline nem abrir o `EmployeeEditDialog`; a edição continua acessível pelo ícone/ação já existente ao lado do nome.
-- `stopPropagation` no clique do link para não conflitar com handlers da linha/célula.
+Arquivo: `src/components/day-type-cell.tsx`
 
-### Não alterar
-- Perfil `/colaboradores/$id` permanece igual (já existe).
-- Estrutura do banco não muda.
-- Nenhuma outra funcionalidade da folha é alterada.
+- Ao gravar/atualizar um `period_days`, sempre usar `manual: false` (em vez de `true`). O dia editado ainda serve de referência para inferir a escala S1/S2 do período naquele momento, mas não fica "travado".
+- Continuar existindo a lógica de "última edição vence": a mutação já recalcula todos os dias não-manuais do período a partir do último dia clicado. Como agora nenhum dia é manual, qualquer nova edição em qualquer outro dia recalcula todos, inclusive os que já haviam sido tocados.
+- Trocar o rótulo "Limpar âncora" por "Limpar", já que o conceito de âncora persistente deixa de existir.
+- Nenhuma migração de banco é necessária. A coluna `manual` continua no schema; simplesmente deixa de ser marcada como `true` por essa UI. Registros antigos com `manual: true` seguirão travados até serem clicados novamente — se quiser, posso adicionar um passo extra para "destravar" registros antigos automaticamente ao carregar (me avise).
 
-## Confirmação antes de implementar
-- Está ok remover **inteiramente** a página kanban `/colaboradores` (não apenas ocultar)? Se preferir apenas esconder do menu mantendo o arquivo, me avise.
+## Resultado esperado
+
+- Clicar em qualquer dia do cabeçalho define P/F, e a partir dele o restante do período é recalculado.
+- Clicar em outro dia depois recalcula tudo de novo, inclusive dias que você já havia editado — nenhum dia fica "preso".
