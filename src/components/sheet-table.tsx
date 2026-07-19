@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Trash2, UserPlus } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -415,7 +416,14 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                             VAGO
                           </div>
                         ) : (
-                          <div className="font-medium truncate">{emp.name}</div>
+                          <Link
+                            to="/colaboradores/$id"
+                            params={{ id: emp.source_employee_id ?? emp.id }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-medium truncate block hover:text-primary hover:underline underline-offset-2 decoration-primary/50"
+                          >
+                            {emp.name}
+                          </Link>
                         )}
                         {emp.role && (
                           <div className="text-xs text-muted-foreground truncate">
