@@ -416,7 +416,14 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                             VAGO
                           </div>
                         ) : (
-                          <div className="font-medium truncate">{emp.name}</div>
+                          <Link
+                            to="/colaboradores/$id"
+                            params={{ id: emp.source_employee_id ?? emp.id }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-medium truncate block hover:text-primary hover:underline underline-offset-2 decoration-primary/50"
+                          >
+                            {emp.name}
+                          </Link>
                         )}
                         {emp.role && (
                           <div className="text-xs text-muted-foreground truncate">
