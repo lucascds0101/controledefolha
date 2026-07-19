@@ -137,7 +137,7 @@ export function DayTypeCell({
           onClick={() => setType.mutate(null)}
           className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-accent text-muted-foreground"
         >
-          Limpar âncora
+          Limpar
         </button>
       </PopoverContent>
     </Popover>
