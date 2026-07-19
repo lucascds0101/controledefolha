@@ -167,7 +167,7 @@ function ProfilePage() {
     return (
       <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">
         Colaborador não encontrado.
-        <Button variant="link" onClick={() => navigate({ to: "/colaboradores" })}>
+        <Button variant="link" onClick={() => navigate({ to: "/" })}>
           Voltar
         </Button>
       </div>
@@ -179,10 +179,10 @@ function ProfilePage() {
       <div className="border-b bg-card/40 backdrop-blur">
         <div className="max-w-6xl mx-auto px-6 py-5">
           <Link
-            to="/colaboradores"
+            to="/"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-3"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Colaboradores
+            <ArrowLeft className="h-3.5 w-3.5" /> Voltar à folha
           </Link>
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
