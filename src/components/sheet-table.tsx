@@ -160,9 +160,9 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     },
   });
 
-  // Map: period_employee_id -> Set<date ISO> covered by any vacation, clipped
-  // to the current period range so we only paint days within this folha.
-  const vacByEmp = useMemo(() => {
+  // Map: period_employee_id -> Set<date ISO> covered by a date-range record
+  // (vacation or medical leave), clipped to the current period range.
+  const buildRangeMap = (ranges: Vacation[]) => {
     const out = new Map<string, Set<string>>();
     const pstart = period.start_date;
     const pend = period.end_date;
@@ -174,7 +174,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         bySource.set(e.source_employee_id, arr);
       }
     }
-    for (const v of vacations) {
+    for (const v of ranges) {
       const s = v.start_date > pstart ? v.start_date : pstart;
       const e = v.end_date < pend ? v.end_date : pend;
       if (s > e) continue;
@@ -195,7 +195,18 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       }
     }
     return out;
-  }, [vacations, employees, period.start_date, period.end_date]);
+  };
+
+  const vacByEmp = useMemo(
+    () => buildRangeMap(vacations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vacations, employees, period.start_date, period.end_date],
+  );
+  const medByEmp = useMemo(
+    () => buildRangeMap(medicalLeaves),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [medicalLeaves, employees, period.start_date, period.end_date],
+  );
 
   const dayTypeMap = useMemo(() => {
     const m = new Map<string, PeriodDay>();
