@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      employee_medical_leaves: {
+        Row: {
+          cid: string | null
+          created_at: string
+          days: number
+          end_date: string
+          id: string
+          note: string | null
+          period_employee_id: string
+          source_employee_id: string | null
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cid?: string | null
+          created_at?: string
+          days: number
+          end_date: string
+          id?: string
+          note?: string | null
+          period_employee_id: string
+          source_employee_id?: string | null
+          start_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cid?: string | null
+          created_at?: string
+          days?: number
+          end_date?: string
+          id?: string
+          note?: string | null
+          period_employee_id?: string
+          source_employee_id?: string | null
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_medical_leaves_period_employee_id_fkey"
+            columns: ["period_employee_id"]
+            isOneToOne: false
+            referencedRelation: "period_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_medical_leaves_source_employee_id_fkey"
+            columns: ["source_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_role_history: {
         Row: {
           changed_at: string
