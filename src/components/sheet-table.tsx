@@ -144,6 +144,22 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     },
   });
 
+  const { data: medicalLeaves = [] } = useQuery({
+    queryKey: ["medical-leaves-by-period", period.id, peIds.length, sourceIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_medical_leaves")
+        .select("id,period_employee_id,source_employee_id,start_date,end_date")
+        .or(filters.join(","));
+      if (error) throw error;
+      return (data ?? []) as MedicalLeave[];
+    },
+  });
+
   // Map: period_employee_id -> Set<date ISO> covered by any vacation, clipped
   // to the current period range so we only paint days within this folha.
   const vacByEmp = useMemo(() => {
