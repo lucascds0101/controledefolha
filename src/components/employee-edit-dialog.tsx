@@ -163,6 +163,14 @@ export function EmployeeEditDialog({
         sourceEmployeeId={employee?.source_employee_id ?? null}
         employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
       />
+
+      <MedicalLeaveDialog
+        open={medOpen}
+        onOpenChange={setMedOpen}
+        periodEmployeeId={employee?.id ?? null}
+        sourceEmployeeId={employee?.source_employee_id ?? null}
+        employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
+      />
     </>
   );
 }
