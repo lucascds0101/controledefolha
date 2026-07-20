@@ -127,13 +127,22 @@ export function EmployeeEditDialog({
             </div>
 
             {employee && (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => setVacOpen(true)}
-              >
-                <Plane className="h-4 w-4" /> Férias do colaborador
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  className="justify-start gap-2"
+                  onClick={() => setVacOpen(true)}
+                >
+                  <Plane className="h-4 w-4" /> Férias
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start gap-2"
+                  onClick={() => setMedOpen(true)}
+                >
+                  <Stethoscope className="h-4 w-4" /> Atestado
+                </Button>
+              </div>
             )}
           </div>
           <DialogFooter>
