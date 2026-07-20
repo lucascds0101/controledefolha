@@ -18,10 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plane } from "lucide-react";
+import { Plane, Stethoscope } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VacationDialog } from "./vacation-dialog";
+import { MedicalLeaveDialog } from "./medical-leave-dialog";
 
 type Role = { id: string; name: string };
 
@@ -86,6 +87,7 @@ export function EmployeeEditDialog({
   });
 
   const [vacOpen, setVacOpen] = useState(false);
+  const [medOpen, setMedOpen] = useState(false);
 
   return (
     <>
@@ -125,13 +127,22 @@ export function EmployeeEditDialog({
             </div>
 
             {employee && (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => setVacOpen(true)}
-              >
-                <Plane className="h-4 w-4" /> Férias do colaborador
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  className="justify-start gap-2"
+                  onClick={() => setVacOpen(true)}
+                >
+                  <Plane className="h-4 w-4" /> Férias
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start gap-2"
+                  onClick={() => setMedOpen(true)}
+                >
+                  <Stethoscope className="h-4 w-4" /> Atestado
+                </Button>
+              </div>
             )}
           </div>
           <DialogFooter>
@@ -148,6 +159,14 @@ export function EmployeeEditDialog({
       <VacationDialog
         open={vacOpen}
         onOpenChange={setVacOpen}
+        periodEmployeeId={employee?.id ?? null}
+        sourceEmployeeId={employee?.source_employee_id ?? null}
+        employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
+      />
+
+      <MedicalLeaveDialog
+        open={medOpen}
+        onOpenChange={setMedOpen}
         periodEmployeeId={employee?.id ?? null}
         sourceEmployeeId={employee?.source_employee_id ?? null}
         employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}

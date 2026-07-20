@@ -63,6 +63,7 @@ type Vacation = {
   start_date: string;
   end_date: string;
 };
+type MedicalLeave = Vacation;
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
@@ -143,9 +144,25 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     },
   });
 
-  // Map: period_employee_id -> Set<date ISO> covered by any vacation, clipped
-  // to the current period range so we only paint days within this folha.
-  const vacByEmp = useMemo(() => {
+  const { data: medicalLeaves = [] } = useQuery({
+    queryKey: ["medical-leaves-by-period", period.id, peIds.length, sourceIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_medical_leaves")
+        .select("id,period_employee_id,source_employee_id,start_date,end_date")
+        .or(filters.join(","));
+      if (error) throw error;
+      return (data ?? []) as MedicalLeave[];
+    },
+  });
+
+  // Map: period_employee_id -> Set<date ISO> covered by a date-range record
+  // (vacation or medical leave), clipped to the current period range.
+  const buildRangeMap = (ranges: Vacation[]) => {
     const out = new Map<string, Set<string>>();
     const pstart = period.start_date;
     const pend = period.end_date;
@@ -157,7 +174,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         bySource.set(e.source_employee_id, arr);
       }
     }
-    for (const v of vacations) {
+    for (const v of ranges) {
       const s = v.start_date > pstart ? v.start_date : pstart;
       const e = v.end_date < pend ? v.end_date : pend;
       if (s > e) continue;
@@ -178,7 +195,18 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       }
     }
     return out;
-  }, [vacations, employees, period.start_date, period.end_date]);
+  };
+
+  const vacByEmp = useMemo(
+    () => buildRangeMap(vacations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vacations, employees, period.start_date, period.end_date],
+  );
+  const medByEmp = useMemo(
+    () => buildRangeMap(medicalLeaves),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [medicalLeaves, employees, period.start_date, period.end_date],
+  );
 
   const dayTypeMap = useMemo(() => {
     const m = new Map<string, PeriodDay>();
@@ -470,8 +498,10 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const ds = dayState(d, today);
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
                     const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
+                    const onMed = medByEmp.get(emp.id)?.has(d) ?? false;
                     const autoPresent =
                       !onVac &&
+                      !onMed &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -486,6 +516,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           ds === "future" && "opacity-60",
                           autoPresent && "bg-occ-p-bg/60",
                           onVac && "bg-occ-fer-bg/60",
+                          onMed && !onVac && "bg-occ-ate-bg/60",
                         )}
                         onClick={() =>
                           setEditing({
@@ -515,7 +546,15 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               FER
                             </span>
                           )}
-                          {items.length === 0 && !onVac ? (
+                          {onMed && (
+                            <span
+                              title="Atestado"
+                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-ate-bg text-occ-ate"
+                            >
+                              ATE
+                            </span>
+                          )}
+                          {items.length === 0 && !onVac && !onMed ? (
                             autoPresent ? (
                               <span
                                 title="Presença confirmada (plantão sem ocorrências)"
