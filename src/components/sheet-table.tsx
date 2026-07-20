@@ -498,8 +498,10 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const ds = dayState(d, today);
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
                     const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
+                    const onMed = medByEmp.get(emp.id)?.has(d) ?? false;
                     const autoPresent =
                       !onVac &&
+                      !onMed &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -514,6 +516,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           ds === "future" && "opacity-60",
                           autoPresent && "bg-occ-p-bg/60",
                           onVac && "bg-occ-fer-bg/60",
+                          onMed && !onVac && "bg-occ-ate-bg/60",
                         )}
                         onClick={() =>
                           setEditing({
@@ -543,7 +546,15 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               FER
                             </span>
                           )}
-                          {items.length === 0 && !onVac ? (
+                          {onMed && (
+                            <span
+                              title="Atestado"
+                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-ate-bg text-occ-ate"
+                            >
+                              ATE
+                            </span>
+                          )}
+                          {items.length === 0 && !onVac && !onMed ? (
                             autoPresent ? (
                               <span
                                 title="Presença confirmada (plantão sem ocorrências)"
