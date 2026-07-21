@@ -160,18 +160,6 @@ export function CellEditor({
                   </div>
                 )}
 
-                {row.type === "TC" && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Trocou com</Label>
-                    <Input
-                      placeholder="Nome do colaborador"
-                      value={row.partner_name ?? ""}
-                      onChange={(e) =>
-                        update(i, { partner_name: e.target.value || null })
-                      }
-                    />
-                  </div>
-                )}
 
                 {row.type === "F" && (
                   <div className="space-y-3">
