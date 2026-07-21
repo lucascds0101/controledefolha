@@ -81,7 +81,7 @@ export function EmployeeEditDialog({
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["period_employees", periodId] });
+      qc.invalidateQueries({ queryKey: ["period_employees", period.id] });
       onOpenChange(false);
       toast.success("Colaborador atualizado neste período");
     },
