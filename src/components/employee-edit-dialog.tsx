@@ -38,12 +38,12 @@ export type EmployeeEditable = {
 
 export function EmployeeEditDialog({
   employee,
-  periodId,
+  period,
   open,
   onOpenChange,
 }: {
   employee: EmployeeEditable | null;
-  periodId: string;
+  period: Period;
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
