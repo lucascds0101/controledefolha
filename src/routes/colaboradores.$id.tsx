@@ -408,7 +408,36 @@ function ProfilePage() {
                 </ul>
               )}
             </Section>
+
+            <Section title={`Trocas casadas (${swaps.length})`}>
+              {swaps.length === 0 ? (
+                <Empty>Sem trocas casadas registradas.</Empty>
+              ) : (
+                <ul className="divide-y rounded-lg border bg-card">
+                  {swaps.map((s) => {
+                    const status = s.canceled
+                      ? "Cancelada"
+                      : s.work_confirmed && s.off_confirmed
+                        ? "Confirmada"
+                        : "Agendada/Pendente";
+                    return (
+                      <li key={s.id} className="px-3 py-2 text-sm flex items-center gap-3">
+                        <ArrowLeftRight className="h-3.5 w-3.5 text-occ-tc" />
+                        <span className="tabular-nums">
+                          Trab {s.work_date} → Folga {s.off_date}
+                        </span>
+                        <span className="text-xs text-muted-foreground">· {status}</span>
+                        {s.note && (
+                          <span className="text-xs text-muted-foreground truncate">— {s.note}</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Section>
           </TabsContent>
+
 
           <TabsContent value="cargos" className="mt-4">
             {history.length === 0 ? (
