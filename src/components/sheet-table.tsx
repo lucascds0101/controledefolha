@@ -168,6 +168,24 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     },
   });
 
+  const { data: swaps = [] } = useQuery({
+    queryKey: ["swaps-by-period", period.id, peIds.length, sourceIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_swaps")
+        .select("id,period_employee_id,source_employee_id,work_date,off_date,canceled")
+        .eq("canceled", false)
+        .or(filters.join(","));
+      if (error) throw error;
+      return (data ?? []) as Swap[];
+    },
+  });
+
+
   // Map: period_employee_id -> Set<date ISO> covered by a date-range record
   // (vacation or medical leave), clipped to the current period range.
   const buildRangeMap = (ranges: Vacation[]) => {
