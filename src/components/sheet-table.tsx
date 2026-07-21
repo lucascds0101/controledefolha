@@ -621,7 +621,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
 
       <EmployeeEditDialog
         employee={editingEmp}
-        periodId={period.id}
+        period={period}
         open={!!editingEmp}
         onOpenChange={(o) => !o && setEditingEmp(null)}
       />
