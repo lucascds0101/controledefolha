@@ -181,6 +181,15 @@ export function EmployeeEditDialog({
         sourceEmployeeId={employee?.source_employee_id ?? null}
         employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
       />
+
+      <SwapDialog
+        open={swapOpen}
+        onOpenChange={setSwapOpen}
+        period={period}
+        periodEmployeeId={employee?.id ?? null}
+        sourceEmployeeId={employee?.source_employee_id ?? null}
+        employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
+      />
     </>
   );
 }
