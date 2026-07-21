@@ -199,6 +199,7 @@ export function SwapDialog({
       if (err) throw new Error(err);
       const { data: u } = await supabase.auth.getUser();
       const partner = partners.find((p) => p.id === partnerId) ?? null;
+      if (!periodEmployeeId) throw new Error("Colaborador inválido.");
       const { error } = await supabase.from("employee_swaps").insert({
         user_id: u.user!.id,
         period_employee_id: periodEmployeeId,
