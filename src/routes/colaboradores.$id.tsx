@@ -139,6 +139,26 @@ function ProfilePage() {
     },
   });
 
+  const { data: swaps = [] } = useQuery({
+    queryKey: ["profile-swaps", id, peIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      filters.push(`source_employee_id.eq.${id}`);
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_swaps")
+        .select(
+          "id,work_date,off_date,work_confirmed,off_confirmed,canceled,note,partner_period_employee_id",
+        )
+        .or(filters.join(","))
+        .order("work_date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+
   const { data: history = [] } = useQuery({
     queryKey: ["profile-history", id],
     queryFn: async () => {
