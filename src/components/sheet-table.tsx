@@ -568,9 +568,13 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
                     const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
                     const onMed = medByEmp.get(emp.id)?.has(d) ?? false;
+                    const onSwapWork = swapWorkByEmp.get(emp.id)?.has(d) ?? false;
+                    const onSwapOff = swapOffByEmp.get(emp.id)?.has(d) ?? false;
                     const autoPresent =
                       !onVac &&
                       !onMed &&
+                      !onSwapWork &&
+                      !onSwapOff &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
