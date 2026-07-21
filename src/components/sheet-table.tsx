@@ -590,6 +590,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           autoPresent && "bg-occ-p-bg/60",
                           onVac && "bg-occ-fer-bg/60",
                           onMed && !onVac && "bg-occ-ate-bg/60",
+                          (onSwapWork || onSwapOff) && !onVac && !onMed && "bg-occ-tc-bg/40",
                         )}
                         onClick={() =>
                           setEditing({
