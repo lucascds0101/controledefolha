@@ -18,11 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plane, Stethoscope } from "lucide-react";
+import { Plane, Repeat, Stethoscope } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VacationDialog } from "./vacation-dialog";
 import { MedicalLeaveDialog } from "./medical-leave-dialog";
+import { SwapDialog } from "./swap-dialog";
+import type { Period } from "./period-sidebar";
 
 type Role = { id: string; name: string };
 
