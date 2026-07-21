@@ -12,7 +12,7 @@ export const OCC_META: Record<
   EX: { label: "EX", full: "Extra", bg: "bg-occ-ex-bg", text: "text-occ-ex", ring: "ring-occ-ex/40" },
 };
 
-export const OCC_TYPES: OccType[] = ["A", "TC", "F", "SA", "SD", "EX"];
+export const OCC_TYPES: OccType[] = ["A", "F", "SA", "SD", "EX"];
 
 // Visual override for Atestado (a special kind of Falta)
 export const ATESTADO_META = {
