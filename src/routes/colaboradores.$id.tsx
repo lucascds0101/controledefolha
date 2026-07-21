@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { isAtestado, summaryFor, type OccType } from "@/lib/occurrence";
+import { isAtestado, summaryFor, eachDay, type OccType } from "@/lib/occurrence";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/colaboradores/$id")({
@@ -123,6 +123,22 @@ function ProfilePage() {
     },
   });
 
+  const { data: medLeaves = [] } = useQuery({
+    queryKey: ["profile-medleaves", id, peIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      filters.push(`source_employee_id.eq.${id}`);
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_medical_leaves")
+        .select("id,start_date,end_date,days,cid,note,created_at")
+        .or(filters.join(","));
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const { data: history = [] } = useQuery({
     queryKey: ["profile-history", id],
     queryFn: async () => {
@@ -139,13 +155,23 @@ function ProfilePage() {
   // Counters by type, with Atestado split out from common Falta.
   const counters = useMemo(() => {
     const c = { A: 0, TC: 0, F: 0, ATE: 0, SA: 0, SD: 0, EX: 0, FER: 0 };
+    const ateDays = new Set<string>();
     for (const o of occs) {
-      if (o.type === "F" && isAtestado(o)) c.ATE++;
-      else c[o.type]++;
+      if (o.type === "F" && isAtestado(o)) {
+        ateDays.add(o.date);
+      } else {
+        c[o.type]++;
+      }
     }
+    for (const ml of medLeaves) {
+      for (const d of eachDay(ml.start_date, ml.end_date)) {
+        if (d >= from && d <= to) ateDays.add(d);
+      }
+    }
+    c.ATE = ateDays.size;
     c.FER = vacations.length;
     return c;
-  }, [occs, vacations]);
+  }, [occs, vacations, medLeaves, from, to]);
 
   const chartData = useMemo(
     () => [
@@ -329,6 +355,34 @@ function ProfilePage() {
                       <span className="tabular-nums">
                         {v.start_date} → {v.end_date}
                       </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+
+            <Section title={`Atestados por intervalo (${medLeaves.length})`}>
+              {medLeaves.length === 0 ? (
+                <Empty>Sem atestados por intervalo registrados.</Empty>
+              ) : (
+                <ul className="divide-y rounded-lg border bg-card">
+                  {medLeaves.map((m) => (
+                    <li key={m.id} className="px-3 py-2 text-sm flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-ate-bg text-occ-ate">
+                        ATE
+                      </span>
+                      <span className="tabular-nums">
+                        {m.start_date} → {m.end_date}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {m.days} dia{m.days === 1 ? "" : "s"}
+                      </span>
+                      {m.cid && (
+                        <span className="text-xs text-muted-foreground">· CID {m.cid}</span>
+                      )}
+                      {m.note && (
+                        <span className="text-xs text-muted-foreground truncate">— {m.note}</span>
+                      )}
                     </li>
                   ))}
                 </ul>
