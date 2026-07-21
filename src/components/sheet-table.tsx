@@ -628,7 +628,23 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               ATE
                             </span>
                           )}
-                          {items.length === 0 && !onVac && !onMed ? (
+                          {onSwapWork && (
+                            <span
+                              title="Troca casada — dia de trabalho"
+                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-tc-bg text-occ-tc"
+                            >
+                              TC↑
+                            </span>
+                          )}
+                          {onSwapOff && (
+                            <span
+                              title="Troca casada — dia de folga"
+                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-tc-bg text-occ-tc"
+                            >
+                              TC↓
+                            </span>
+                          )}
+                          {items.length === 0 && !onVac && !onMed && !onSwapWork && !onSwapOff ? (
                             autoPresent ? (
                               <span
                                 title="Presença confirmada (plantão sem ocorrências)"
