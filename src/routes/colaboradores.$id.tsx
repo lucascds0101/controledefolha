@@ -360,6 +360,34 @@ function ProfilePage() {
                 </ul>
               )}
             </Section>
+
+            <Section title={`Atestados por intervalo (${medLeaves.length})`}>
+              {medLeaves.length === 0 ? (
+                <Empty>Sem atestados por intervalo registrados.</Empty>
+              ) : (
+                <ul className="divide-y rounded-lg border bg-card">
+                  {medLeaves.map((m) => (
+                    <li key={m.id} className="px-3 py-2 text-sm flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-ate-bg text-occ-ate">
+                        ATE
+                      </span>
+                      <span className="tabular-nums">
+                        {m.start_date} → {m.end_date}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {m.days} dia{m.days === 1 ? "" : "s"}
+                      </span>
+                      {m.cid && (
+                        <span className="text-xs text-muted-foreground">· CID {m.cid}</span>
+                      )}
+                      {m.note && (
+                        <span className="text-xs text-muted-foreground truncate">— {m.note}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
           </TabsContent>
 
           <TabsContent value="cargos" className="mt-4">
