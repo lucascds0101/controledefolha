@@ -64,6 +64,14 @@ type Vacation = {
   end_date: string;
 };
 type MedicalLeave = Vacation;
+type Swap = {
+  id: string;
+  period_employee_id: string;
+  source_employee_id: string | null;
+  work_date: string;
+  off_date: string;
+  canceled: boolean;
+};
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
