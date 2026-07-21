@@ -90,6 +90,7 @@ export function EmployeeEditDialog({
 
   const [vacOpen, setVacOpen] = useState(false);
   const [medOpen, setMedOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
 
   return (
     <>
