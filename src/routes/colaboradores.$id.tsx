@@ -123,6 +123,22 @@ function ProfilePage() {
     },
   });
 
+  const { data: medLeaves = [] } = useQuery({
+    queryKey: ["profile-medleaves", id, peIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      filters.push(`source_employee_id.eq.${id}`);
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_medical_leaves")
+        .select("id,start_date,end_date,days,cid,note,created_at")
+        .or(filters.join(","));
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const { data: history = [] } = useQuery({
     queryKey: ["profile-history", id],
     queryFn: async () => {
@@ -139,13 +155,23 @@ function ProfilePage() {
   // Counters by type, with Atestado split out from common Falta.
   const counters = useMemo(() => {
     const c = { A: 0, TC: 0, F: 0, ATE: 0, SA: 0, SD: 0, EX: 0, FER: 0 };
+    const ateDays = new Set<string>();
     for (const o of occs) {
-      if (o.type === "F" && isAtestado(o)) c.ATE++;
-      else c[o.type]++;
+      if (o.type === "F" && isAtestado(o)) {
+        ateDays.add(o.date);
+      } else {
+        c[o.type]++;
+      }
     }
+    for (const ml of medLeaves) {
+      for (const d of eachDay(ml.start_date, ml.end_date)) {
+        if (d >= from && d <= to) ateDays.add(d);
+      }
+    }
+    c.ATE = ateDays.size;
     c.FER = vacations.length;
     return c;
-  }, [occs, vacations]);
+  }, [occs, vacations, medLeaves, from, to]);
 
   const chartData = useMemo(
     () => [
