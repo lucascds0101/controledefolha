@@ -64,6 +64,14 @@ type Vacation = {
   end_date: string;
 };
 type MedicalLeave = Vacation;
+type Swap = {
+  id: string;
+  period_employee_id: string;
+  source_employee_id: string | null;
+  work_date: string;
+  off_date: string;
+  canceled: boolean;
+};
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
@@ -160,6 +168,24 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     },
   });
 
+  const { data: swaps = [] } = useQuery({
+    queryKey: ["swaps-by-period", period.id, peIds.length, sourceIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_swaps")
+        .select("id,period_employee_id,source_employee_id,work_date,off_date,canceled")
+        .eq("canceled", false)
+        .or(filters.join(","));
+      if (error) throw error;
+      return (data ?? []) as Swap[];
+    },
+  });
+
+
   // Map: period_employee_id -> Set<date ISO> covered by a date-range record
   // (vacation or medical leave), clipped to the current period range.
   const buildRangeMap = (ranges: Vacation[]) => {
@@ -207,6 +233,49 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [medicalLeaves, employees, period.start_date, period.end_date],
   );
+
+  // Map: period_employee_id -> Set<date ISO> for single dates on swaps.
+  const buildSwapMap = (pick: "work_date" | "off_date") => {
+    const out = new Map<string, Set<string>>();
+    const bySource = new Map<string, PE[]>();
+    for (const e of employees) {
+      if (e.source_employee_id) {
+        const arr = bySource.get(e.source_employee_id) ?? [];
+        arr.push(e);
+        bySource.set(e.source_employee_id, arr);
+      }
+    }
+    for (const s of swaps) {
+      const d = s[pick];
+      if (d < period.start_date || d > period.end_date) continue;
+      const targets: string[] = [];
+      if (s.period_employee_id) targets.push(s.period_employee_id);
+      if (s.source_employee_id) {
+        const matches = bySource.get(s.source_employee_id) ?? [];
+        for (const pe of matches) targets.push(pe.id);
+      }
+      for (const t of targets) {
+        let set = out.get(t);
+        if (!set) {
+          set = new Set();
+          out.set(t, set);
+        }
+        set.add(d);
+      }
+    }
+    return out;
+  };
+  const swapWorkByEmp = useMemo(
+    () => buildSwapMap("work_date"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [swaps, employees, period.start_date, period.end_date],
+  );
+  const swapOffByEmp = useMemo(
+    () => buildSwapMap("off_date"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [swaps, employees, period.start_date, period.end_date],
+  );
+
 
   const dayTypeMap = useMemo(() => {
     const m = new Map<string, PeriodDay>();
@@ -499,9 +568,13 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
                     const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
                     const onMed = medByEmp.get(emp.id)?.has(d) ?? false;
+                    const onSwapWork = swapWorkByEmp.get(emp.id)?.has(d) ?? false;
+                    const onSwapOff = swapOffByEmp.get(emp.id)?.has(d) ?? false;
                     const autoPresent =
                       !onVac &&
                       !onMed &&
+                      !onSwapWork &&
+                      !onSwapOff &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -517,6 +590,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           autoPresent && "bg-occ-p-bg/60",
                           onVac && "bg-occ-fer-bg/60",
                           onMed && !onVac && "bg-occ-ate-bg/60",
+                          (onSwapWork || onSwapOff) && !onVac && !onMed && "bg-occ-tc-bg/40",
                         )}
                         onClick={() =>
                           setEditing({
@@ -554,7 +628,23 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               ATE
                             </span>
                           )}
-                          {items.length === 0 && !onVac && !onMed ? (
+                          {onSwapWork && (
+                            <span
+                              title="Troca casada — dia de trabalho"
+                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-tc-bg text-occ-tc"
+                            >
+                              TC↑
+                            </span>
+                          )}
+                          {onSwapOff && (
+                            <span
+                              title="Troca casada — dia de folga"
+                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-tc-bg text-occ-tc"
+                            >
+                              TC↓
+                            </span>
+                          )}
+                          {items.length === 0 && !onVac && !onMed && !onSwapWork && !onSwapOff ? (
                             autoPresent ? (
                               <span
                                 title="Presença confirmada (plantão sem ocorrências)"
@@ -621,7 +711,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
 
       <EmployeeEditDialog
         employee={editingEmp}
-        periodId={period.id}
+        period={period}
         open={!!editingEmp}
         onOpenChange={(o) => !o && setEditingEmp(null)}
       />

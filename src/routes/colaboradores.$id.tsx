@@ -139,6 +139,26 @@ function ProfilePage() {
     },
   });
 
+  const { data: swaps = [] } = useQuery({
+    queryKey: ["profile-swaps", id, peIds.length],
+    enabled: peIds.length > 0,
+    queryFn: async () => {
+      const filters: string[] = [];
+      filters.push(`source_employee_id.eq.${id}`);
+      if (peIds.length) filters.push(`period_employee_id.in.(${peIds.join(",")})`);
+      const { data, error } = await supabase
+        .from("employee_swaps")
+        .select(
+          "id,work_date,off_date,work_confirmed,off_confirmed,canceled,note,partner_period_employee_id",
+        )
+        .or(filters.join(","))
+        .order("work_date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+
   const { data: history = [] } = useQuery({
     queryKey: ["profile-history", id],
     queryFn: async () => {
@@ -388,7 +408,36 @@ function ProfilePage() {
                 </ul>
               )}
             </Section>
+
+            <Section title={`Trocas casadas (${swaps.length})`}>
+              {swaps.length === 0 ? (
+                <Empty>Sem trocas casadas registradas.</Empty>
+              ) : (
+                <ul className="divide-y rounded-lg border bg-card">
+                  {swaps.map((s) => {
+                    const status = s.canceled
+                      ? "Cancelada"
+                      : s.work_confirmed && s.off_confirmed
+                        ? "Confirmada"
+                        : "Agendada/Pendente";
+                    return (
+                      <li key={s.id} className="px-3 py-2 text-sm flex items-center gap-3">
+                        <ArrowLeftRight className="h-3.5 w-3.5 text-occ-tc" />
+                        <span className="tabular-nums">
+                          Trab {s.work_date} → Folga {s.off_date}
+                        </span>
+                        <span className="text-xs text-muted-foreground">· {status}</span>
+                        {s.note && (
+                          <span className="text-xs text-muted-foreground truncate">— {s.note}</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Section>
           </TabsContent>
+
 
           <TabsContent value="cargos" className="mt-4">
             {history.length === 0 ? (

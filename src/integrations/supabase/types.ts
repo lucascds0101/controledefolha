@@ -104,6 +104,81 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_swaps: {
+        Row: {
+          canceled: boolean
+          canceled_at: string | null
+          created_at: string
+          id: string
+          note: string | null
+          off_confirmed: boolean
+          off_confirmed_at: string | null
+          off_date: string
+          partner_period_employee_id: string | null
+          partner_source_employee_id: string | null
+          period_employee_id: string
+          source_employee_id: string | null
+          updated_at: string
+          user_id: string
+          work_confirmed: boolean
+          work_confirmed_at: string | null
+          work_date: string
+        }
+        Insert: {
+          canceled?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          off_confirmed?: boolean
+          off_confirmed_at?: string | null
+          off_date: string
+          partner_period_employee_id?: string | null
+          partner_source_employee_id?: string | null
+          period_employee_id: string
+          source_employee_id?: string | null
+          updated_at?: string
+          user_id: string
+          work_confirmed?: boolean
+          work_confirmed_at?: string | null
+          work_date: string
+        }
+        Update: {
+          canceled?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          off_confirmed?: boolean
+          off_confirmed_at?: string | null
+          off_date?: string
+          partner_period_employee_id?: string | null
+          partner_source_employee_id?: string | null
+          period_employee_id?: string
+          source_employee_id?: string | null
+          updated_at?: string
+          user_id?: string
+          work_confirmed?: boolean
+          work_confirmed_at?: string | null
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_swaps_partner_period_employee_id_fkey"
+            columns: ["partner_period_employee_id"]
+            isOneToOne: false
+            referencedRelation: "period_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_swaps_period_employee_id_fkey"
+            columns: ["period_employee_id"]
+            isOneToOne: false
+            referencedRelation: "period_employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_vacations: {
         Row: {
           created_at: string

@@ -18,11 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plane, Stethoscope } from "lucide-react";
+import { Plane, Repeat, Stethoscope } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VacationDialog } from "./vacation-dialog";
 import { MedicalLeaveDialog } from "./medical-leave-dialog";
+import { SwapDialog } from "./swap-dialog";
+import type { Period } from "./period-sidebar";
 
 type Role = { id: string; name: string };
 
@@ -36,12 +38,12 @@ export type EmployeeEditable = {
 
 export function EmployeeEditDialog({
   employee,
-  periodId,
+  period,
   open,
   onOpenChange,
 }: {
   employee: EmployeeEditable | null;
-  periodId: string;
+  period: Period;
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
@@ -79,7 +81,7 @@ export function EmployeeEditDialog({
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["period_employees", periodId] });
+      qc.invalidateQueries({ queryKey: ["period_employees", period.id] });
       onOpenChange(false);
       toast.success("Colaborador atualizado neste período");
     },
@@ -88,6 +90,7 @@ export function EmployeeEditDialog({
 
   const [vacOpen, setVacOpen] = useState(false);
   const [medOpen, setMedOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
 
   return (
     <>
@@ -127,7 +130,7 @@ export function EmployeeEditDialog({
             </div>
 
             {employee && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <Button
                   variant="outline"
                   className="justify-start gap-2"
@@ -141,6 +144,13 @@ export function EmployeeEditDialog({
                   onClick={() => setMedOpen(true)}
                 >
                   <Stethoscope className="h-4 w-4" /> Atestado
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start gap-2"
+                  onClick={() => setSwapOpen(true)}
+                >
+                  <Repeat className="h-4 w-4" /> Troca casada
                 </Button>
               </div>
             )}
@@ -167,6 +177,15 @@ export function EmployeeEditDialog({
       <MedicalLeaveDialog
         open={medOpen}
         onOpenChange={setMedOpen}
+        periodEmployeeId={employee?.id ?? null}
+        sourceEmployeeId={employee?.source_employee_id ?? null}
+        employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
+      />
+
+      <SwapDialog
+        open={swapOpen}
+        onOpenChange={setSwapOpen}
+        period={period}
         periodEmployeeId={employee?.id ?? null}
         sourceEmployeeId={employee?.source_employee_id ?? null}
         employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
