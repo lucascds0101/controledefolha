@@ -56,6 +56,10 @@
   --color-occ-fer-bg: var(--occ-fer-bg);
   --color-occ-ate: var(--occ-ate);
   --color-occ-ate-bg: var(--occ-ate-bg);
+  --color-occ-ab: var(--occ-ab);
+  --color-occ-ab-bg: var(--occ-ab-bg);
+  --color-occ-inj: var(--occ-inj);
+  --color-occ-inj-bg: var(--occ-inj-bg);
 
   /* Day type tags */
   --color-day-plantao: var(--day-plantao);
