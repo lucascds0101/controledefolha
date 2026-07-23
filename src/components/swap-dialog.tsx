@@ -11,13 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Check, Trash2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,8 +22,7 @@ type Swap = {
   id: string;
   period_employee_id: string;
   source_employee_id: string | null;
-  partner_period_employee_id: string | null;
-  partner_source_employee_id: string | null;
+  partner_name: string | null;
   work_date: string;
   off_date: string;
   work_confirmed: boolean;
@@ -40,14 +32,6 @@ type Swap = {
   canceled: boolean;
   canceled_at: string | null;
   note: string | null;
-};
-
-type Partner = {
-  id: string;
-  name: string;
-  role: string | null;
-  vacant: boolean;
-  source_employee_id: string | null;
 };
 
 type LegStatus = "Agendada" | "Pendente de confirmação" | "Confirmada" | "Cancelada";
@@ -105,10 +89,10 @@ export function SwapDialog({
       let q = supabase
         .from("employee_swaps")
         .select(
-          "id,period_employee_id,source_employee_id,partner_period_employee_id,partner_source_employee_id,work_date,off_date,work_confirmed,work_confirmed_at,off_confirmed,off_confirmed_at,canceled,canceled_at,note",
+          "id,period_employee_id,source_employee_id,partner_name,work_date,off_date,work_confirmed,work_confirmed_at,off_confirmed,off_confirmed_at,canceled,canceled_at,note",
         )
-        .gte("work_date", period.start_date)
-        .lte("work_date", period.end_date);
+        .gte("off_date", period.start_date)
+        .lte("off_date", period.end_date);
       if (sourceEmployeeId) {
         q = q.or(
           `source_employee_id.eq.${sourceEmployeeId},period_employee_id.eq.${periodEmployeeId}`,
@@ -116,50 +100,33 @@ export function SwapDialog({
       } else {
         q = q.eq("period_employee_id", periodEmployeeId!);
       }
-      const { data, error } = await q.order("work_date");
+      const { data, error } = await q.order("off_date");
       if (error) throw error;
       return (data ?? []) as Swap[];
     },
   });
 
-  const { data: partners = [] } = useQuery({
-    queryKey: ["swap-partners", period.id, periodEmployeeId],
-    enabled: !!periodEmployeeId && open,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("period_employees")
-        .select("id,name,role,vacant,source_employee_id")
-        .eq("period_id", period.id)
-        .order("name");
-      if (error) throw error;
-      return ((data ?? []) as Partner[]).filter(
-        (p) => p.id !== periodEmployeeId && !p.vacant,
-      );
-    },
-  });
-
-  const [workDate, setWorkDate] = useState("");
-  const [offDate, setOffDate] = useState("");
-  const [partnerId, setPartnerId] = useState<string>("");
+  // "Meu lado": off_date = data em que o colaborador vai folgar
+  // "Outro lado": partner_name (texto livre) + work_date = data escolhida pelo outro
+  const [myOffDate, setMyOffDate] = useState("");
+  const [partnerName, setPartnerName] = useState("");
+  const [partnerDate, setPartnerDate] = useState("");
   const [note, setNote] = useState("");
 
   useEffect(() => {
     if (open) {
-      setWorkDate("");
-      setOffDate("");
-      setPartnerId("");
+      setMyOffDate("");
+      setPartnerName("");
+      setPartnerDate("");
       setNote("");
     }
   }, [open]);
 
-  // Count active (non-canceled) dates already used by this employee in this period.
-  const activeDateCount = useMemo(
-    () => swaps.filter((s) => !s.canceled).reduce((n, s) => n + 2, 0),
+  const activeCount = useMemo(
+    () => swaps.filter((s) => !s.canceled).length,
     [swaps],
   );
-
-  const remaining = Math.max(0, 2 - activeDateCount);
-  const atLimit = remaining < 2; // needs at least 2 free slots to add a new swap (work + off)
+  const atLimit = activeCount >= 2;
 
   const summary = useMemo(() => {
     let total = swaps.length;
@@ -181,13 +148,13 @@ export function SwapDialog({
   }, [swaps, today]);
 
   function validate(): string | null {
-    if (!workDate || !offDate) return "Informe as duas datas.";
-    if (workDate === offDate)
-      return "A data de trabalho e a data de folga não podem ser iguais.";
-    const inRange = (d: string) =>
-      d >= period.start_date && d <= period.end_date;
-    if (!inRange(workDate) || !inRange(offDate))
-      return "As datas precisam estar dentro do período da folha.";
+    if (!myOffDate) return "Informe a data de folga do colaborador.";
+    if (!partnerName.trim()) return "Informe o nome do outro colaborador.";
+    if (!partnerDate) return "Informe a data escolhida pelo outro colaborador.";
+    if (myOffDate === partnerDate)
+      return "As duas datas da troca não podem ser iguais.";
+    if (myOffDate < period.start_date || myOffDate > period.end_date)
+      return "A data de folga precisa estar dentro do período da folha.";
     if (atLimit)
       return "Este colaborador já atingiu o limite de 2 trocas casadas neste período.";
     return null;
@@ -198,16 +165,14 @@ export function SwapDialog({
       const err = validate();
       if (err) throw new Error(err);
       const { data: u } = await supabase.auth.getUser();
-      const partner = partners.find((p) => p.id === partnerId) ?? null;
       if (!periodEmployeeId) throw new Error("Colaborador inválido.");
       const { error } = await supabase.from("employee_swaps").insert({
         user_id: u.user!.id,
         period_employee_id: periodEmployeeId,
         source_employee_id: sourceEmployeeId,
-        partner_period_employee_id: partner?.id ?? null,
-        partner_source_employee_id: partner?.source_employee_id ?? null,
-        work_date: workDate,
-        off_date: offDate,
+        partner_name: partnerName.trim(),
+        work_date: partnerDate,
+        off_date: myOffDate,
         note: note.trim() || null,
       });
       if (error) throw error;
@@ -215,9 +180,9 @@ export function SwapDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["swaps"] });
       qc.invalidateQueries({ queryKey: ["swaps-by-period", period.id] });
-      setWorkDate("");
-      setOffDate("");
-      setPartnerId("");
+      setMyOffDate("");
+      setPartnerName("");
+      setPartnerDate("");
       setNote("");
       toast.success("Troca casada registrada");
     },
@@ -271,7 +236,8 @@ export function SwapDialog({
     },
   });
 
-  const validationMsg = workDate && offDate ? validate() : null;
+  const validationMsg =
+    myOffDate || partnerName || partnerDate ? validate() : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -290,49 +256,48 @@ export function SwapDialog({
           </div>
 
           {/* Form */}
-          <div className="rounded-lg border p-3 space-y-3 bg-card">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border p-3 space-y-4 bg-card">
+            <div className="space-y-2">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Meu lado da troca
+              </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Data de trabalho (pagando)</Label>
+                <Label className="text-xs">Data escolhida pelo colaborador (folga)</Label>
                 <Input
                   type="date"
                   min={period.start_date}
                   max={period.end_date}
-                  value={workDate}
-                  onChange={(e) => setWorkDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Data de folga (recebendo)</Label>
-                <Input
-                  type="date"
-                  min={period.start_date}
-                  max={period.end_date}
-                  value={offDate}
-                  onChange={(e) => setOffDate(e.target.value)}
+                  value={myOffDate}
+                  onChange={(e) => setMyOffDate(e.target.value)}
                 />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Colaborador envolvido (opcional)</Label>
-              <Select
-                value={partnerId || "none"}
-                onValueChange={(v) => setPartnerId(v === "none" ? "" : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um colaborador" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Sem parceiro —</SelectItem>
-                  {partners.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                      {p.role ? ` · ${p.role}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="space-y-2 pt-1 border-t">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-2">
+                Outro lado da troca
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nome do outro colaborador</Label>
+                  <Input
+                    type="text"
+                    value={partnerName}
+                    onChange={(e) => setPartnerName(e.target.value)}
+                    placeholder="Digite o nome"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Data escolhida pelo colaborador</Label>
+                  <Input
+                    type="date"
+                    value={partnerDate}
+                    onChange={(e) => setPartnerDate(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs">Observação (opcional)</Label>
               <Textarea
@@ -355,8 +320,9 @@ export function SwapDialog({
             <Button
               onClick={() => add.mutate()}
               disabled={
-                !workDate ||
-                !offDate ||
+                !myOffDate ||
+                !partnerName.trim() ||
+                !partnerDate ||
                 !!validationMsg ||
                 atLimit ||
                 add.isPending
@@ -374,9 +340,6 @@ export function SwapDialog({
                 Trocas registradas neste período
               </Label>
               {swaps.map((s) => {
-                const partner = partners.find(
-                  (p) => p.id === s.partner_period_employee_id,
-                );
                 const wStatus = legStatus(
                   s.work_date,
                   s.work_confirmed,
@@ -389,10 +352,10 @@ export function SwapDialog({
                   s.canceled,
                   today,
                 );
-                const canConfirmWork =
-                  !s.canceled && !s.work_confirmed && s.work_date <= today;
                 const canConfirmOff =
                   !s.canceled && !s.off_confirmed && s.off_date <= today;
+                const canConfirmWork =
+                  !s.canceled && !s.work_confirmed && s.work_date <= today;
                 const bothFuture =
                   !s.canceled && s.work_date > today && s.off_date > today;
                 return (
@@ -407,18 +370,13 @@ export function SwapDialog({
                       <div className="min-w-0 space-y-1">
                         <div className="text-sm">
                           <span className="font-medium">
-                            Trabalha {fmtBR(s.work_date)}
-                          </span>{" "}
-                          <span className="text-muted-foreground">→</span>{" "}
-                          <span className="font-medium">
                             Folga {fmtBR(s.off_date)}
+                          </span>{" "}
+                          <span className="text-muted-foreground">↔</span>{" "}
+                          <span className="font-medium">
+                            {s.partner_name || "—"}: {fmtBR(s.work_date)}
                           </span>
                         </div>
-                        {partner && (
-                          <div className="text-xs text-muted-foreground">
-                            Com: {partner.name}
-                          </div>
-                        )}
                         {s.note && (
                           <div className="text-xs text-muted-foreground">
                             {s.note}
@@ -428,18 +386,18 @@ export function SwapDialog({
                           <span
                             className={cn(
                               "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold",
-                              statusClass(wStatus),
+                              statusClass(oStatus),
                             )}
                           >
-                            Trab: {wStatus}
+                            Minha folga: {oStatus}
                           </span>
                           <span
                             className={cn(
                               "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold",
-                              statusClass(oStatus),
+                              statusClass(wStatus),
                             )}
                           >
-                            Folga: {oStatus}
+                            Outro: {wStatus}
                           </span>
                         </div>
                       </div>
@@ -456,18 +414,6 @@ export function SwapDialog({
 
                     {!s.canceled && (canConfirmWork || canConfirmOff || bothFuture) && (
                       <div className="flex flex-wrap gap-2 pt-1 border-t">
-                        {canConfirmWork && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1 h-7"
-                            onClick={() =>
-                              confirmLeg.mutate({ id: s.id, leg: "work" })
-                            }
-                          >
-                            <Check className="h-3.5 w-3.5" /> Confirmar trabalho
-                          </Button>
-                        )}
                         {canConfirmOff && (
                           <Button
                             size="sm"
@@ -477,7 +423,19 @@ export function SwapDialog({
                               confirmLeg.mutate({ id: s.id, leg: "off" })
                             }
                           >
-                            <Check className="h-3.5 w-3.5" /> Confirmar folga
+                            <Check className="h-3.5 w-3.5" /> Confirmar minha folga
+                          </Button>
+                        )}
+                        {canConfirmWork && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 h-7"
+                            onClick={() =>
+                              confirmLeg.mutate({ id: s.id, leg: "work" })
+                            }
+                          >
+                            <Check className="h-3.5 w-3.5" /> Confirmar outro
                           </Button>
                         )}
                         {bothFuture && (

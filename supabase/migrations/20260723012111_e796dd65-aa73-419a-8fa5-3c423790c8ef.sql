@@ -1,0 +1,1 @@
+ALTER TABLE public.employee_swaps ADD COLUMN IF NOT EXISTS partner_name TEXT;
