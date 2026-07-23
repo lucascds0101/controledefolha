@@ -23,18 +23,28 @@ export const ATESTADO_META = {
   ring: "ring-occ-ate/40",
 };
 
+// Visual override for Abono
+export const ABONO_META = {
+  label: "AB",
+  full: "Abono",
+  bg: "bg-occ-ab-bg",
+  text: "text-occ-ab",
+  ring: "ring-occ-ab/40",
+};
+
+// Visual override for Injustificada
+export const INJUSTIFICADA_META = {
+  label: "INJ",
+  full: "Injustificada",
+  bg: "bg-occ-inj-bg",
+  text: "text-occ-inj",
+  ring: "ring-occ-inj/40",
+};
+
 export const FALTA_REASONS = [
-  "Sem contato",
-  "Injustificado",
   "Atestado",
+  "Injustificada",
   "Abono",
-  "Hospital",
-  "Prob. pessoal",
-  "Licença",
-  "Prob. VT",
-  "Afastamento",
-  "Desligamento",
-  "Outros",
 ] as const;
 
 export const SAIDA_REASONS = [
@@ -51,6 +61,22 @@ export const SANCTION_KINDS = [
 
 export function isAtestado(o: { type: OccType; reason?: string | null }): boolean {
   return o.type === "F" && o.reason === "Atestado";
+}
+
+export function isAbono(o: { type: OccType; reason?: string | null }): boolean {
+  return o.type === "F" && o.reason === "Abono";
+}
+
+export function isInjustificada(o: { type: OccType; reason?: string | null }): boolean {
+  // Accept both new "Injustificada" and legacy "Injustificado".
+  return o.type === "F" && (o.reason === "Injustificada" || o.reason === "Injustificado");
+}
+
+export function faltaMeta(o: { type: OccType; reason?: string | null }) {
+  if (isAtestado(o)) return ATESTADO_META;
+  if (isAbono(o)) return ABONO_META;
+  if (isInjustificada(o)) return INJUSTIFICADA_META;
+  return null;
 }
 
 export function eachDay(start: string, end: string): string[] {
