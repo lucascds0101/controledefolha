@@ -7,6 +7,7 @@ import {
   FALTA_REASONS,
   SAIDA_REASONS,
   isAtestado,
+  faltaMeta,
   type OccType,
 } from "@/lib/occurrence";
 import type { DayType } from "./day-type-cell";
