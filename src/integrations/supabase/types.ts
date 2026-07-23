@@ -114,6 +114,7 @@ export type Database = {
           off_confirmed: boolean
           off_confirmed_at: string | null
           off_date: string
+          partner_name: string | null
           partner_period_employee_id: string | null
           partner_source_employee_id: string | null
           period_employee_id: string
@@ -133,6 +134,7 @@ export type Database = {
           off_confirmed?: boolean
           off_confirmed_at?: string | null
           off_date: string
+          partner_name?: string | null
           partner_period_employee_id?: string | null
           partner_source_employee_id?: string | null
           period_employee_id: string
@@ -152,6 +154,7 @@ export type Database = {
           off_confirmed?: boolean
           off_confirmed_at?: string | null
           off_date?: string
+          partner_name?: string | null
           partner_period_employee_id?: string | null
           partner_source_employee_id?: string | null
           period_employee_id?: string
