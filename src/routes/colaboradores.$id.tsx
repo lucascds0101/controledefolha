@@ -339,7 +339,7 @@ function ProfilePage() {
               ) : (
                 <ul className="divide-y rounded-lg border bg-card max-h-96 overflow-y-auto sheet-scroll">
                   {occs.map((o) => {
-                    const isAte = isAtestado(o);
+                    const fm = faltaMeta(o);
                     return (
                       <li key={o.id} className="px-3 py-2 text-sm flex items-center gap-3">
                         <span className="text-xs tabular-nums text-muted-foreground w-24">
@@ -348,10 +348,10 @@ function ProfilePage() {
                         <span
                           className={cn(
                             "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
-                            isAte ? "bg-occ-ate-bg text-occ-ate" : `bg-occ-${o.type.toLowerCase()}-bg text-occ-${o.type.toLowerCase()}`,
+                            fm ? `${fm.bg} ${fm.text}` : `bg-occ-${o.type.toLowerCase()}-bg text-occ-${o.type.toLowerCase()}`,
                           )}
                         >
-                          {isAte ? "ATE" : o.type}
+                          {fm ? fm.label : o.type}
                         </span>
                         <span className="text-xs text-muted-foreground truncate">
                           {summaryFor(o)}
