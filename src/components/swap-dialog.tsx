@@ -50,13 +50,27 @@ function legStatus(
 function statusClass(s: LegStatus): string {
   switch (s) {
     case "Confirmada":
-      return "bg-occ-p-bg text-occ-p";
+      return "bg-occ-p-bg text-occ-p ring-1 ring-occ-p/30";
     case "Pendente de confirmação":
-      return "bg-occ-a-bg text-occ-a";
+      return "bg-occ-a-bg text-occ-a ring-1 ring-occ-a/40";
     case "Cancelada":
       return "bg-muted text-muted-foreground line-through";
     default:
-      return "bg-occ-tc-bg text-occ-tc";
+      return "bg-occ-tc-bg text-occ-tc ring-1 ring-occ-tc/30";
+  }
+}
+
+function StatusIcon({ s }: { s: LegStatus }) {
+  const cls = "h-3 w-3";
+  switch (s) {
+    case "Confirmada":
+      return <CheckCircle2 className={cls} />;
+    case "Pendente de confirmação":
+      return <Clock className={cls} />;
+    case "Cancelada":
+      return <XCircle className={cls} />;
+    default:
+      return <Calendar className={cls} />;
   }
 }
 
