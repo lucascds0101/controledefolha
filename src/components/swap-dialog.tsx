@@ -399,18 +399,20 @@ export function SwapDialog({
                         <div className="flex flex-wrap gap-1 pt-1">
                           <span
                             className={cn(
-                              "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold",
+                              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
                               statusClass(oStatus),
                             )}
                           >
+                            <StatusIcon s={oStatus} />
                             Minha folga: {oStatus}
                           </span>
                           <span
                             className={cn(
-                              "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold",
+                              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
                               statusClass(wStatus),
                             )}
                           >
+                            <StatusIcon s={wStatus} />
                             Outro: {wStatus}
                           </span>
                         </div>
