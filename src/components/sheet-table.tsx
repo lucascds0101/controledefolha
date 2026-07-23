@@ -657,8 +657,8 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                             )
                           ) : null}
                           {items.map((it) => {
-                            const ate = isAtestado(it);
-                            const m = ate ? ATESTADO_META : OCC_META[it.type];
+                            const fm = faltaMeta(it);
+                            const m = fm ?? OCC_META[it.type];
                             if (!m) return null;
                             return (
                               <span
