@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OCC_META, ATESTADO_META, eachDay, fmtDay, isAtestado, summaryFor, type OccType } from "@/lib/occurrence";
+import { OCC_META, ATESTADO_META, eachDay, fmtDay, isAtestado, faltaMeta, summaryFor, type OccType } from "@/lib/occurrence";
 import { todayISO, dayState } from "@/lib/date-utils";
 import { mondayKey } from "@/lib/schedule";
 import { sortEmployees } from "@/lib/sort-employees";
