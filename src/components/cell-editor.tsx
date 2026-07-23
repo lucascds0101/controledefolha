@@ -113,8 +113,8 @@ export function CellEditor({
 
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 sheet-scroll">
           {rows.map((row, i) => {
-            const ate = isAtestado(row);
-            const meta = ate ? ATESTADO_META : OCC_META[row.type];
+            const fMeta = faltaMeta(row);
+            const meta = fMeta ?? OCC_META[row.type];
             return (
               <div key={i} className={cn("rounded-lg border p-3 space-y-3", meta.bg)}>
                 <div className="flex items-start gap-2">
