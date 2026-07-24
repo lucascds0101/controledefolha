@@ -177,11 +177,7 @@ function ProfilePage() {
     const c = { A: 0, TC: 0, F: 0, ATE: 0, SA: 0, SD: 0, EX: 0, FER: 0 };
     const ateDays = new Set<string>();
     for (const o of occs) {
-      if (o.type === "F" && isAtestado(o)) {
-        ateDays.add(o.date);
-      } else {
-        c[o.type]++;
-      }
+      c[o.type]++;
     }
     for (const ml of medLeaves) {
       for (const d of eachDay(ml.start_date, ml.end_date)) {
