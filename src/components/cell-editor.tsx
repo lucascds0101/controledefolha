@@ -3,10 +3,8 @@ import { Trash2, Plus } from "lucide-react";
 import {
   OCC_META,
   OCC_TYPES,
-  ATESTADO_META,
   FALTA_REASONS,
   SAIDA_REASONS,
-  isAtestado,
   faltaMeta,
   type OccType,
 } from "@/lib/occurrence";

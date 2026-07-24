@@ -14,15 +14,6 @@ export const OCC_META: Record<
 
 export const OCC_TYPES: OccType[] = ["A", "F", "SA", "SD", "EX"];
 
-// Visual override for Atestado (a special kind of Falta)
-export const ATESTADO_META = {
-  label: "ATE",
-  full: "Atestado",
-  bg: "bg-occ-ate-bg",
-  text: "text-occ-ate",
-  ring: "ring-occ-ate/40",
-};
-
 // Visual override for Abono
 export const ABONO_META = {
   label: "AB",
@@ -42,7 +33,6 @@ export const INJUSTIFICADA_META = {
 };
 
 export const FALTA_REASONS = [
-  "Atestado",
   "Injustificada",
   "Abono",
 ] as const;
@@ -59,10 +49,6 @@ export const SANCTION_KINDS = [
   "Suspensão",
 ] as const;
 
-export function isAtestado(o: { type: OccType; reason?: string | null }): boolean {
-  return o.type === "F" && o.reason === "Atestado";
-}
-
 export function isAbono(o: { type: OccType; reason?: string | null }): boolean {
   return o.type === "F" && o.reason === "Abono";
 }
@@ -73,7 +59,6 @@ export function isInjustificada(o: { type: OccType; reason?: string | null }): b
 }
 
 export function faltaMeta(o: { type: OccType; reason?: string | null }) {
-  if (isAtestado(o)) return ATESTADO_META;
   if (isAbono(o)) return ABONO_META;
   if (isInjustificada(o)) return INJUSTIFICADA_META;
   return null;
