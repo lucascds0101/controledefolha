@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2, UserPlus } from "lucide-react";
+import { CheckCircle2, Clock, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import type { Period } from "./period-sidebar";
 import { EmployeeEditDialog, type EmployeeEditable } from "./employee-edit-dialog";
 import { DayTypeCell, type DayType } from "./day-type-cell";
+import { MedicalLeaveDialog } from "./medical-leave-dialog";
 
 type Role = { id: string; name: string };
 type PE = {
