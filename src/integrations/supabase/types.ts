@@ -219,6 +219,7 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          hire_date: string | null
           id: string
           name: string
           position: number
@@ -230,6 +231,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          hire_date?: string | null
           id?: string
           name: string
           position?: number
@@ -241,6 +243,7 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          hire_date?: string | null
           id?: string
           name?: string
           position?: number
@@ -361,6 +364,7 @@ export type Database = {
       period_employees: {
         Row: {
           created_at: string
+          hire_date: string | null
           id: string
           name: string
           period_id: string
@@ -373,6 +377,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          hire_date?: string | null
           id?: string
           name: string
           period_id: string
@@ -385,6 +390,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          hire_date?: string | null
           id?: string
           name?: string
           period_id?: string
