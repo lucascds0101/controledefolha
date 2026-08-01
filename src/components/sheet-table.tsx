@@ -40,6 +40,7 @@ type PE = {
   role: string | null;
   position: number;
   vacant: boolean;
+  hire_date: string | null;
 };
 type Occurrence = {
   id: string;
@@ -70,6 +71,8 @@ type Swap = {
   source_employee_id: string | null;
   work_date: string;
   off_date: string;
+  work_confirmed: boolean;
+  off_confirmed: boolean;
   canceled: boolean;
 };
 
@@ -95,7 +98,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("period_employees")
-        .select("id,source_employee_id,name,role,position,vacant")
+        .select("id,source_employee_id,name,role,position,vacant,hire_date")
         .eq("period_id", period.id)
         .order("position", { ascending: true })
         .order("created_at", { ascending: true });
@@ -177,7 +180,9 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
       const { data, error } = await supabase
         .from("employee_swaps")
-        .select("id,period_employee_id,source_employee_id,work_date,off_date,canceled")
+        .select(
+          "id,period_employee_id,source_employee_id,work_date,off_date,work_confirmed,off_confirmed,canceled",
+        )
         .eq("canceled", false)
         .or(filters.join(","));
       if (error) throw error;
