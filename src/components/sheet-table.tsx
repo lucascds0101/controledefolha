@@ -233,15 +233,46 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [vacations, employees, period.start_date, period.end_date],
   );
-  const medByEmp = useMemo(
-    () => buildRangeMap(medicalLeaves),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [medicalLeaves, employees, period.start_date, period.end_date],
-  );
+  // Map: period_employee_id -> (date -> contiguous medical-leave segment),
+  // clipped to the current period so the grid can render a merged block.
+  type MedSegment = { id: string; start: string; end: string };
+  const medSegByEmp = useMemo(() => {
+    const out = new Map<string, Map<string, MedSegment>>();
+    const pstart = period.start_date;
+    const pend = period.end_date;
+    const bySource = new Map<string, PE[]>();
+    for (const e of employees) {
+      if (e.source_employee_id) {
+        const arr = bySource.get(e.source_employee_id) ?? [];
+        arr.push(e);
+        bySource.set(e.source_employee_id, arr);
+      }
+    }
+    for (const v of medicalLeaves) {
+      const s = v.start_date > pstart ? v.start_date : pstart;
+      const e = v.end_date < pend ? v.end_date : pend;
+      if (s > e) continue;
+      const seg: MedSegment = { id: v.id, start: s, end: e };
+      const targets: string[] = [];
+      if (v.period_employee_id) targets.push(v.period_employee_id);
+      if (v.source_employee_id) {
+        for (const pe of bySource.get(v.source_employee_id) ?? []) targets.push(pe.id);
+      }
+      for (const t of targets) {
+        let m = out.get(t);
+        if (!m) {
+          m = new Map();
+          out.set(t, m);
+        }
+        for (const d of eachDay(s, e)) m.set(d, seg);
+      }
+    }
+    return out;
+  }, [medicalLeaves, employees, period.start_date, period.end_date]);
 
-  // Map: period_employee_id -> Set<date ISO> for single dates on swaps.
-  const buildSwapMap = (pick: "work_date" | "off_date") => {
-    const out = new Map<string, Set<string>>();
+  // Map: `${period_employee_id}|${date}` -> swap leg on that date.
+  const swapByCell = useMemo(() => {
+    const out = new Map<string, { swap: Swap; leg: "work" | "off" }>();
     const bySource = new Map<string, PE[]>();
     for (const e of employees) {
       if (e.source_employee_id) {
@@ -251,35 +282,19 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       }
     }
     for (const s of swaps) {
-      const d = s[pick];
-      if (d < period.start_date || d > period.end_date) continue;
       const targets: string[] = [];
       if (s.period_employee_id) targets.push(s.period_employee_id);
       if (s.source_employee_id) {
-        const matches = bySource.get(s.source_employee_id) ?? [];
-        for (const pe of matches) targets.push(pe.id);
+        for (const pe of bySource.get(s.source_employee_id) ?? []) targets.push(pe.id);
       }
-      for (const t of targets) {
-        let set = out.get(t);
-        if (!set) {
-          set = new Set();
-          out.set(t, set);
-        }
-        set.add(d);
+      for (const leg of ["work", "off"] as const) {
+        const d = leg === "work" ? s.work_date : s.off_date;
+        if (d < period.start_date || d > period.end_date) continue;
+        for (const t of targets) out.set(`${t}|${d}`, { swap: s, leg });
       }
     }
     return out;
-  };
-  const swapWorkByEmp = useMemo(
-    () => buildSwapMap("work_date"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swaps, employees, period.start_date, period.end_date],
-  );
-  const swapOffByEmp = useMemo(
-    () => buildSwapMap("off_date"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swaps, employees, period.start_date, period.end_date],
-  );
+  }, [swaps, employees, period.start_date, period.end_date]);
 
 
   const dayTypeMap = useMemo(() => {
