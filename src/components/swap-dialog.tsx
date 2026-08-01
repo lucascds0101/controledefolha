@@ -193,6 +193,7 @@ export function SwapDialog({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["swaps"] });
+      qc.invalidateQueries({ queryKey: ["profile-swaps"] });
       qc.invalidateQueries({ queryKey: ["swaps-by-period", period.id] });
       setMyOffDate("");
       setPartnerName("");
@@ -217,6 +218,7 @@ export function SwapDialog({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["swaps"] });
+      qc.invalidateQueries({ queryKey: ["profile-swaps"] });
       qc.invalidateQueries({ queryKey: ["swaps-by-period", period.id] });
       toast.success("Presença confirmada");
     },
@@ -233,6 +235,7 @@ export function SwapDialog({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["swaps"] });
+      qc.invalidateQueries({ queryKey: ["profile-swaps"] });
       qc.invalidateQueries({ queryKey: ["swaps-by-period", period.id] });
       toast.success("Troca cancelada");
     },
@@ -246,6 +249,7 @@ export function SwapDialog({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["swaps"] });
+      qc.invalidateQueries({ queryKey: ["profile-swaps"] });
       qc.invalidateQueries({ queryKey: ["swaps-by-period", period.id] });
     },
   });

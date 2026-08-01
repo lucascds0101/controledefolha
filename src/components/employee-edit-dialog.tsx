@@ -182,7 +182,10 @@ export function EmployeeEditDialog({
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
+            <Button
+              onClick={() => save.mutate()}
+              disabled={!name.trim() || !hireDate || save.isPending}
+            >
               Salvar
             </Button>
           </DialogFooter>
