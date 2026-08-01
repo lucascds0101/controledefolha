@@ -401,6 +401,25 @@ export function SwapDialog({
                           </div>
                         )}
                         <div className="flex flex-wrap gap-1 pt-1">
+                          {!s.canceled && (
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                s.work_confirmed && s.off_confirmed
+                                  ? "bg-occ-p-bg text-occ-p ring-1 ring-occ-p/30"
+                                  : "bg-occ-a-bg text-occ-a ring-1 ring-occ-a/40",
+                              )}
+                            >
+                              {s.work_confirmed && s.off_confirmed ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <Clock className="h-3 w-3" />
+                              )}
+                              {s.work_confirmed && s.off_confirmed
+                                ? "Troca concluída"
+                                : "Troca pendente"}
+                            </span>
+                          )}
                           <span
                             className={cn(
                               "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
