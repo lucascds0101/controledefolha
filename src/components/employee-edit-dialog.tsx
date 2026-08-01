@@ -63,21 +63,29 @@ export function EmployeeEditDialog({
   const [name, setName] = useState("");
   const [role, setRole] = useState<string>("");
   const [vacant, setVacant] = useState(false);
+  const [hireDate, setHireDate] = useState("");
 
   useEffect(() => {
     if (employee) {
       setName(employee.name);
       setRole(employee.role ?? "");
       setVacant(employee.vacant);
+      setHireDate(employee.hire_date ?? "");
     }
   }, [employee]);
 
   const save = useMutation({
     mutationFn: async () => {
       if (!employee) return;
+      if (!hireDate) throw new Error("Informe a data de admissão.");
       const { error } = await supabase
         .from("period_employees")
-        .update({ name: name.trim(), role: role || null, vacant })
+        .update({
+          name: name.trim(),
+          role: role || null,
+          vacant,
+          hire_date: hireDate,
+        })
         .eq("id", employee.id);
       if (error) throw error;
     },
