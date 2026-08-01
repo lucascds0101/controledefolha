@@ -605,15 +605,24 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const f = fmtDay(d);
                     const ds = dayState(d, today);
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
+                    const preHire = !!emp.hire_date && d < emp.hire_date;
                     const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
-                    const onMed = medByEmp.get(emp.id)?.has(d) ?? false;
-                    const onSwapWork = swapWorkByEmp.get(emp.id)?.has(d) ?? false;
-                    const onSwapOff = swapOffByEmp.get(emp.id)?.has(d) ?? false;
+                    const seg = medSegByEmp.get(emp.id)?.get(d) ?? null;
+                    const onMed = !!seg;
+                    const segKey = seg ? `${emp.id}|${seg.id}` : null;
+                    const segHover = !!segKey && hoverSeg === segKey;
+                    const segStart = seg ? seg.start === d : false;
+                    const segEnd = seg ? seg.end === d : false;
+                    const cellSwap = swapByCell.get(`${emp.id}|${d}`) ?? null;
+                    const swapDone =
+                      !!cellSwap &&
+                      cellSwap.swap.work_confirmed &&
+                      cellSwap.swap.off_confirmed;
                     const autoPresent =
+                      !preHire &&
                       !onVac &&
                       !onMed &&
-                      !onSwapWork &&
-                      !onSwapOff &&
+                      !cellSwap &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -621,17 +630,32 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     return (
                       <td
                         key={d}
+                        onMouseEnter={() => segKey && setHoverSeg(segKey)}
+                        onMouseLeave={() => segKey && setHoverSeg(null)}
                         className={cn(
-                          "border-b border-r p-1 align-middle text-center cursor-pointer hover:bg-accent/40 transition",
-                          f.isWeekend && "bg-muted/20",
-                          ds === "today" && "bg-primary/5 ring-1 ring-inset ring-primary/30",
+                          "border-b border-r align-middle text-center transition",
+                          onMed ? "p-0" : "p-1",
+                          preHire
+                            ? "bg-muted/50 cursor-not-allowed"
+                            : "cursor-pointer hover:bg-accent/40",
+                          !preHire && f.isWeekend && "bg-muted/20",
+                          !preHire &&
+                            ds === "today" &&
+                            "bg-primary/5 ring-1 ring-inset ring-primary/30",
                           ds === "future" && "opacity-60",
                           autoPresent && "bg-occ-p-bg/60",
-                          onVac && "bg-occ-fer-bg/60",
-                          onMed && !onVac && "bg-occ-ate-bg/60",
-                          (onSwapWork || onSwapOff) && !onVac && !onMed && "bg-occ-tc-bg/40",
+                          onVac && !preHire && "bg-occ-fer-bg/60",
+                          onMed && !onVac && !preHire && "bg-occ-ate-bg/50",
+                          onMed && !segEnd && "border-r-transparent",
+                          segHover && "bg-occ-ate-bg",
+                          cellSwap && !onVac && !onMed && !preHire && "bg-occ-tc-bg/40",
                         )}
-                        onClick={() =>
+                        onClick={() => {
+                          if (preHire) return;
+                          if (seg) {
+                            setMedFor(emp);
+                            return;
+                          }
                           setEditing({
                             employee: emp,
                             date: d,
@@ -646,74 +670,113 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               exit_time: i.exit_time,
                               return_time: i.return_time,
                               note: i.note,
-                            })),
-                          })
-                        }
+                            }));
+                          });
+                        }}
                       >
-                        <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
-                          {onVac && (
-                            <span
-                              title="Férias"
-                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-fer-bg text-occ-fer"
-                            >
-                              FER
-                            </span>
-                          )}
-                          {onMed && (
-                            <span
-                              title="Atestado"
-                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-ate-bg text-occ-ate"
-                            >
-                              ATE
-                            </span>
-                          )}
-                          {onSwapWork && (
-                            <span
-                              title="Troca casada — dia de trabalho"
-                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-tc-bg text-occ-tc"
-                            >
-                              TC↑
-                            </span>
-                          )}
-                          {onSwapOff && (
-                            <span
-                              title="Troca casada — dia de folga"
-                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-tc-bg text-occ-tc"
-                            >
-                              TC↓
-                            </span>
-                          )}
-                          {items.length === 0 && !onVac && !onMed && !onSwapWork && !onSwapOff ? (
-                            autoPresent ? (
-                              <span
-                                title="Presença confirmada (plantão sem ocorrências)"
-                                className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-p-bg text-occ-p"
-                              >
-                                P
+                        {preHire ? (
+                          <div
+                            title={`Admitido em ${new Date(emp.hire_date + "T00:00:00").toLocaleDateString("pt-BR")}`}
+                            className="min-h-[28px] flex items-center justify-center text-muted-foreground/40 text-xs select-none"
+                          >
+                            —
+                          </div>
+                        ) : seg ? (
+                          <div
+                            title="Atestado — clique para ver o registro"
+                            className={cn(
+                              "min-h-[28px] flex items-center gap-1 px-1 border-y border-occ-ate/40 bg-occ-ate-bg transition-colors",
+                              segStart && "rounded-l-md border-l pl-1.5",
+                              segEnd && "rounded-r-md border-r",
+                              segHover && "bg-occ-ate/25",
+                            )}
+                          >
+                            {segStart && (
+                              <span className="text-[10px] font-bold text-occ-ate whitespace-nowrap">
+                                ATE
                               </span>
-                            ) : (
-                              <span className="text-muted-foreground/30 text-xs">+</span>
-                            )
-                          ) : null}
-                          {items.map((it) => {
-                            const fm = faltaMeta(it);
-                            const m = fm ?? OCC_META[it.type];
-                            if (!m) return null;
-                            return (
+                            )}
+                            <span className="flex-1 flex flex-wrap gap-0.5 justify-center">
+                              {items.map((it) => {
+                                const fm = faltaMeta(it);
+                                const m = fm ?? OCC_META[it.type];
+                                if (!m) return null;
+                                return (
+                                  <span
+                                    key={it.id}
+                                    title={`${m.full} — ${summaryFor(it)}`}
+                                    className={cn(
+                                      "inline-flex items-center justify-center px-1 rounded text-[10px] font-bold",
+                                      m.bg,
+                                      m.text,
+                                    )}
+                                  >
+                                    {m.label}
+                                  </span>
+                                );
+                              })}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
+                            {onVac && (
                               <span
-                                key={it.id}
-                                title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
+                                title="Férias"
+                                className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-fer-bg text-occ-fer"
+                              >
+                                FER
+                              </span>
+                            )}
+                            {cellSwap && (
+                              <span
+                                title={`Troca casada — dia de ${cellSwap.leg === "work" ? "trabalho" : "folga"} · ${swapDone ? "concluída" : "pendente"}`}
                                 className={cn(
-                                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
-                                  m.bg,
-                                  m.text,
+                                  "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-bold",
+                                  swapDone
+                                    ? "bg-occ-p-bg text-occ-p ring-1 ring-occ-p/30"
+                                    : "bg-occ-a-bg text-occ-a ring-1 ring-occ-a/40",
                                 )}
                               >
-                                {m.label}
+                                {swapDone ? (
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                ) : (
+                                  <Clock className="h-2.5 w-2.5" />
+                                )}
+                                TC{cellSwap.leg === "work" ? "↑" : "↓"}
                               </span>
-                            );
-                          })}
-                        </div>
+                            )}
+                            {items.length === 0 && !onVac && !cellSwap ? (
+                              autoPresent ? (
+                                <span
+                                  title="Presença confirmada (plantão sem ocorrências)"
+                                  className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-p-bg text-occ-p"
+                                >
+                                  P
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/30 text-xs">+</span>
+                              )
+                            ) : null}
+                            {items.map((it) => {
+                              const fm = faltaMeta(it);
+                              const m = fm ?? OCC_META[it.type];
+                              if (!m) return null;
+                              return (
+                                <span
+                                  key={it.id}
+                                  title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
+                                  className={cn(
+                                    "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                    m.bg,
+                                    m.text,
+                                  )}
+                                >
+                                  {m.label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
                     );
                   })}
