@@ -372,14 +372,17 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const [openAdd, setOpenAdd] = useState(false);
   const [name, setName] = useState("");
   const [role, setRole] = useState<string>("");
+  const [hireDate, setHireDate] = useState("");
   const addEmp = useMutation({
     mutationFn: async () => {
+      if (!hireDate) throw new Error("Informe a data de admissão.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("period_employees").insert({
         user_id: u.user!.id,
         period_id: period.id,
         name,
         role: role || null,
+        hire_date: hireDate,
         position: employees.length,
       });
       if (error) throw error;
@@ -388,6 +391,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       qc.invalidateQueries({ queryKey: ["period_employees", period.id] });
       setName("");
       setRole("");
+      setHireDate("");
       setOpenAdd(false);
       toast.success("Colaborador adicionado neste período");
     },
