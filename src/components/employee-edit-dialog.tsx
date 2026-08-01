@@ -34,6 +34,7 @@ export type EmployeeEditable = {
   name: string;
   role: string | null;
   vacant: boolean;
+  hire_date: string | null;
 };
 
 export function EmployeeEditDialog({
