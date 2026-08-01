@@ -578,6 +578,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               name: emp.name,
                               role: emp.role,
                               vacant: emp.vacant,
+                              hire_date: emp.hire_date,
                             })
                           }
                           aria-label="Editar"
