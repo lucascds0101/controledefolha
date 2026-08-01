@@ -670,7 +670,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               exit_time: i.exit_time,
                               return_time: i.return_time,
                               note: i.note,
-                            }));
+                            })),
                           });
                         }}
                       >
