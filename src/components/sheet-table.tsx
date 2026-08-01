@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2, UserPlus } from "lucide-react";
+import { CheckCircle2, Clock, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import type { Period } from "./period-sidebar";
 import { EmployeeEditDialog, type EmployeeEditable } from "./employee-edit-dialog";
 import { DayTypeCell, type DayType } from "./day-type-cell";
+import { MedicalLeaveDialog } from "./medical-leave-dialog";
 
 type Role = { id: string; name: string };
 type PE = {
@@ -40,6 +41,7 @@ type PE = {
   role: string | null;
   position: number;
   vacant: boolean;
+  hire_date: string | null;
 };
 type Occurrence = {
   id: string;
@@ -70,6 +72,8 @@ type Swap = {
   source_employee_id: string | null;
   work_date: string;
   off_date: string;
+  work_confirmed: boolean;
+  off_confirmed: boolean;
   canceled: boolean;
 };
 
@@ -95,7 +99,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("period_employees")
-        .select("id,source_employee_id,name,role,position,vacant")
+        .select("id,source_employee_id,name,role,position,vacant,hire_date")
         .eq("period_id", period.id)
         .order("position", { ascending: true })
         .order("created_at", { ascending: true });
@@ -177,7 +181,9 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
       const { data, error } = await supabase
         .from("employee_swaps")
-        .select("id,period_employee_id,source_employee_id,work_date,off_date,canceled")
+        .select(
+          "id,period_employee_id,source_employee_id,work_date,off_date,work_confirmed,off_confirmed,canceled",
+        )
         .eq("canceled", false)
         .or(filters.join(","));
       if (error) throw error;
@@ -228,15 +234,46 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [vacations, employees, period.start_date, period.end_date],
   );
-  const medByEmp = useMemo(
-    () => buildRangeMap(medicalLeaves),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [medicalLeaves, employees, period.start_date, period.end_date],
-  );
+  // Map: period_employee_id -> (date -> contiguous medical-leave segment),
+  // clipped to the current period so the grid can render a merged block.
+  type MedSegment = { id: string; start: string; end: string };
+  const medSegByEmp = useMemo(() => {
+    const out = new Map<string, Map<string, MedSegment>>();
+    const pstart = period.start_date;
+    const pend = period.end_date;
+    const bySource = new Map<string, PE[]>();
+    for (const e of employees) {
+      if (e.source_employee_id) {
+        const arr = bySource.get(e.source_employee_id) ?? [];
+        arr.push(e);
+        bySource.set(e.source_employee_id, arr);
+      }
+    }
+    for (const v of medicalLeaves) {
+      const s = v.start_date > pstart ? v.start_date : pstart;
+      const e = v.end_date < pend ? v.end_date : pend;
+      if (s > e) continue;
+      const seg: MedSegment = { id: v.id, start: s, end: e };
+      const targets: string[] = [];
+      if (v.period_employee_id) targets.push(v.period_employee_id);
+      if (v.source_employee_id) {
+        for (const pe of bySource.get(v.source_employee_id) ?? []) targets.push(pe.id);
+      }
+      for (const t of targets) {
+        let m = out.get(t);
+        if (!m) {
+          m = new Map();
+          out.set(t, m);
+        }
+        for (const d of eachDay(s, e)) m.set(d, seg);
+      }
+    }
+    return out;
+  }, [medicalLeaves, employees, period.start_date, period.end_date]);
 
-  // Map: period_employee_id -> Set<date ISO> for single dates on swaps.
-  const buildSwapMap = (pick: "work_date" | "off_date") => {
-    const out = new Map<string, Set<string>>();
+  // Map: `${period_employee_id}|${date}` -> swap leg on that date.
+  const swapByCell = useMemo(() => {
+    const out = new Map<string, { swap: Swap; leg: "work" | "off" }>();
     const bySource = new Map<string, PE[]>();
     for (const e of employees) {
       if (e.source_employee_id) {
@@ -246,35 +283,19 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       }
     }
     for (const s of swaps) {
-      const d = s[pick];
-      if (d < period.start_date || d > period.end_date) continue;
       const targets: string[] = [];
       if (s.period_employee_id) targets.push(s.period_employee_id);
       if (s.source_employee_id) {
-        const matches = bySource.get(s.source_employee_id) ?? [];
-        for (const pe of matches) targets.push(pe.id);
+        for (const pe of bySource.get(s.source_employee_id) ?? []) targets.push(pe.id);
       }
-      for (const t of targets) {
-        let set = out.get(t);
-        if (!set) {
-          set = new Set();
-          out.set(t, set);
-        }
-        set.add(d);
+      for (const leg of ["work", "off"] as const) {
+        const d = leg === "work" ? s.work_date : s.off_date;
+        if (d < period.start_date || d > period.end_date) continue;
+        for (const t of targets) out.set(`${t}|${d}`, { swap: s, leg });
       }
     }
     return out;
-  };
-  const swapWorkByEmp = useMemo(
-    () => buildSwapMap("work_date"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swaps, employees, period.start_date, period.end_date],
-  );
-  const swapOffByEmp = useMemo(
-    () => buildSwapMap("off_date"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swaps, employees, period.start_date, period.end_date],
-  );
+  }, [swaps, employees, period.start_date, period.end_date]);
 
 
   const dayTypeMap = useMemo(() => {
@@ -352,14 +373,17 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const [openAdd, setOpenAdd] = useState(false);
   const [name, setName] = useState("");
   const [role, setRole] = useState<string>("");
+  const [hireDate, setHireDate] = useState("");
   const addEmp = useMutation({
     mutationFn: async () => {
+      if (!hireDate) throw new Error("Informe a data de admissão.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("period_employees").insert({
         user_id: u.user!.id,
         period_id: period.id,
         name,
         role: role || null,
+        hire_date: hireDate,
         position: employees.length,
       });
       if (error) throw error;
@@ -368,6 +392,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       qc.invalidateQueries({ queryKey: ["period_employees", period.id] });
       setName("");
       setRole("");
+      setHireDate("");
       setOpenAdd(false);
       toast.success("Colaborador adicionado neste período");
     },
@@ -392,6 +417,8 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   });
 
   const [editingEmp, setEditingEmp] = useState<EmployeeEditable | null>(null);
+  const [medFor, setMedFor] = useState<PE | null>(null);
+  const [hoverSeg, setHoverSeg] = useState<string | null>(null);
 
   const totalCount = employees.length;
   const vacantCount = employees.filter((e) => e.vacant).length;
@@ -423,6 +450,19 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
+                  <Label>
+                    Data de admissão <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="date"
+                    value={hireDate}
+                    onChange={(e) => setHireDate(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Dias anteriores à admissão ficam desabilitados no grid.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
                   <Label>Cargo</Label>
                   <Select value={role} onValueChange={setRole}>
                     <SelectTrigger>
@@ -441,7 +481,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
               <DialogFooter>
                 <Button
                   onClick={() => addEmp.mutate()}
-                  disabled={!name.trim() || addEmp.isPending}
+                  disabled={!name.trim() || !hireDate || addEmp.isPending}
                 >
                   Adicionar
                 </Button>
@@ -538,6 +578,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               name: emp.name,
                               role: emp.role,
                               vacant: emp.vacant,
+                              hire_date: emp.hire_date,
                             })
                           }
                           aria-label="Editar"
@@ -566,15 +607,24 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const f = fmtDay(d);
                     const ds = dayState(d, today);
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
+                    const preHire = !!emp.hire_date && d < emp.hire_date;
                     const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
-                    const onMed = medByEmp.get(emp.id)?.has(d) ?? false;
-                    const onSwapWork = swapWorkByEmp.get(emp.id)?.has(d) ?? false;
-                    const onSwapOff = swapOffByEmp.get(emp.id)?.has(d) ?? false;
+                    const seg = medSegByEmp.get(emp.id)?.get(d) ?? null;
+                    const onMed = !!seg;
+                    const segKey = seg ? `${emp.id}|${seg.id}` : null;
+                    const segHover = !!segKey && hoverSeg === segKey;
+                    const segStart = seg ? seg.start === d : false;
+                    const segEnd = seg ? seg.end === d : false;
+                    const cellSwap = swapByCell.get(`${emp.id}|${d}`) ?? null;
+                    const swapDone =
+                      !!cellSwap &&
+                      cellSwap.swap.work_confirmed &&
+                      cellSwap.swap.off_confirmed;
                     const autoPresent =
+                      !preHire &&
                       !onVac &&
                       !onMed &&
-                      !onSwapWork &&
-                      !onSwapOff &&
+                      !cellSwap &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -582,17 +632,32 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     return (
                       <td
                         key={d}
+                        onMouseEnter={() => segKey && setHoverSeg(segKey)}
+                        onMouseLeave={() => segKey && setHoverSeg(null)}
                         className={cn(
-                          "border-b border-r p-1 align-middle text-center cursor-pointer hover:bg-accent/40 transition",
-                          f.isWeekend && "bg-muted/20",
-                          ds === "today" && "bg-primary/5 ring-1 ring-inset ring-primary/30",
+                          "border-b border-r align-middle text-center transition",
+                          onMed ? "p-0" : "p-1",
+                          preHire
+                            ? "bg-muted/50 cursor-not-allowed"
+                            : "cursor-pointer hover:bg-accent/40",
+                          !preHire && f.isWeekend && "bg-muted/20",
+                          !preHire &&
+                            ds === "today" &&
+                            "bg-primary/5 ring-1 ring-inset ring-primary/30",
                           ds === "future" && "opacity-60",
                           autoPresent && "bg-occ-p-bg/60",
-                          onVac && "bg-occ-fer-bg/60",
-                          onMed && !onVac && "bg-occ-ate-bg/60",
-                          (onSwapWork || onSwapOff) && !onVac && !onMed && "bg-occ-tc-bg/40",
+                          onVac && !preHire && "bg-occ-fer-bg/60",
+                          onMed && !onVac && !preHire && "bg-occ-ate-bg/50",
+                          onMed && !segEnd && "border-r-transparent",
+                          segHover && "bg-occ-ate-bg",
+                          cellSwap && !onVac && !onMed && !preHire && "bg-occ-tc-bg/40",
                         )}
-                        onClick={() =>
+                        onClick={() => {
+                          if (preHire) return;
+                          if (seg) {
+                            setMedFor(emp);
+                            return;
+                          }
                           setEditing({
                             employee: emp,
                             date: d,
@@ -608,73 +673,112 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               return_time: i.return_time,
                               note: i.note,
                             })),
-                          })
-                        }
+                          });
+                        }}
                       >
-                        <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
-                          {onVac && (
-                            <span
-                              title="Férias"
-                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-fer-bg text-occ-fer"
-                            >
-                              FER
-                            </span>
-                          )}
-                          {onMed && (
-                            <span
-                              title="Atestado"
-                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-ate-bg text-occ-ate"
-                            >
-                              ATE
-                            </span>
-                          )}
-                          {onSwapWork && (
-                            <span
-                              title="Troca casada — dia de trabalho"
-                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-tc-bg text-occ-tc"
-                            >
-                              TC↑
-                            </span>
-                          )}
-                          {onSwapOff && (
-                            <span
-                              title="Troca casada — dia de folga"
-                              className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-tc-bg text-occ-tc"
-                            >
-                              TC↓
-                            </span>
-                          )}
-                          {items.length === 0 && !onVac && !onMed && !onSwapWork && !onSwapOff ? (
-                            autoPresent ? (
-                              <span
-                                title="Presença confirmada (plantão sem ocorrências)"
-                                className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-p-bg text-occ-p"
-                              >
-                                P
+                        {preHire ? (
+                          <div
+                            title={`Admitido em ${new Date(emp.hire_date + "T00:00:00").toLocaleDateString("pt-BR")}`}
+                            className="min-h-[28px] flex items-center justify-center text-muted-foreground/40 text-xs select-none"
+                          >
+                            —
+                          </div>
+                        ) : seg ? (
+                          <div
+                            title="Atestado — clique para ver o registro"
+                            className={cn(
+                              "min-h-[28px] flex items-center gap-1 px-1 border-y border-occ-ate/40 bg-occ-ate-bg transition-colors",
+                              segStart && "rounded-l-md border-l pl-1.5",
+                              segEnd && "rounded-r-md border-r",
+                              segHover && "bg-occ-ate/25",
+                            )}
+                          >
+                            {segStart && (
+                              <span className="text-[10px] font-bold text-occ-ate whitespace-nowrap">
+                                ATE
                               </span>
-                            ) : (
-                              <span className="text-muted-foreground/30 text-xs">+</span>
-                            )
-                          ) : null}
-                          {items.map((it) => {
-                            const fm = faltaMeta(it);
-                            const m = fm ?? OCC_META[it.type];
-                            if (!m) return null;
-                            return (
+                            )}
+                            <span className="flex-1 flex flex-wrap gap-0.5 justify-center">
+                              {items.map((it) => {
+                                const fm = faltaMeta(it);
+                                const m = fm ?? OCC_META[it.type];
+                                if (!m) return null;
+                                return (
+                                  <span
+                                    key={it.id}
+                                    title={`${m.full} — ${summaryFor(it)}`}
+                                    className={cn(
+                                      "inline-flex items-center justify-center px-1 rounded text-[10px] font-bold",
+                                      m.bg,
+                                      m.text,
+                                    )}
+                                  >
+                                    {m.label}
+                                  </span>
+                                );
+                              })}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
+                            {onVac && (
                               <span
-                                key={it.id}
-                                title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
+                                title="Férias"
+                                className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-fer-bg text-occ-fer"
+                              >
+                                FER
+                              </span>
+                            )}
+                            {cellSwap && (
+                              <span
+                                title={`Troca casada — dia de ${cellSwap.leg === "work" ? "trabalho" : "folga"} · ${swapDone ? "concluída" : "pendente"}`}
                                 className={cn(
-                                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
-                                  m.bg,
-                                  m.text,
+                                  "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-bold",
+                                  swapDone
+                                    ? "bg-occ-p-bg text-occ-p ring-1 ring-occ-p/30"
+                                    : "bg-occ-a-bg text-occ-a ring-1 ring-occ-a/40",
                                 )}
                               >
-                                {m.label}
+                                {swapDone ? (
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                ) : (
+                                  <Clock className="h-2.5 w-2.5" />
+                                )}
+                                TC{cellSwap.leg === "work" ? "↑" : "↓"}
                               </span>
-                            );
-                          })}
-                        </div>
+                            )}
+                            {items.length === 0 && !onVac && !cellSwap ? (
+                              autoPresent ? (
+                                <span
+                                  title="Presença confirmada (plantão sem ocorrências)"
+                                  className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-occ-p-bg text-occ-p"
+                                >
+                                  P
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/30 text-xs">+</span>
+                              )
+                            ) : null}
+                            {items.map((it) => {
+                              const fm = faltaMeta(it);
+                              const m = fm ?? OCC_META[it.type];
+                              if (!m) return null;
+                              return (
+                                <span
+                                  key={it.id}
+                                  title={`${m.full} — ${summaryFor(it)}${it.note ? ` (${it.note})` : ""}`}
+                                  className={cn(
+                                    "inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                    m.bg,
+                                    m.text,
+                                  )}
+                                >
+                                  {m.label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
                     );
                   })}
@@ -714,6 +818,14 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         period={period}
         open={!!editingEmp}
         onOpenChange={(o) => !o && setEditingEmp(null)}
+      />
+
+      <MedicalLeaveDialog
+        open={!!medFor}
+        onOpenChange={(o) => !o && setMedFor(null)}
+        periodEmployeeId={medFor?.id ?? null}
+        sourceEmployeeId={medFor?.source_employee_id ?? null}
+        employeeName={medFor?.vacant ? "VAGO" : (medFor?.name ?? "")}
       />
     </>
   );

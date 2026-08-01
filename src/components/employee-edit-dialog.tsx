@@ -34,6 +34,7 @@ export type EmployeeEditable = {
   name: string;
   role: string | null;
   vacant: boolean;
+  hire_date: string | null;
 };
 
 export function EmployeeEditDialog({
@@ -62,21 +63,29 @@ export function EmployeeEditDialog({
   const [name, setName] = useState("");
   const [role, setRole] = useState<string>("");
   const [vacant, setVacant] = useState(false);
+  const [hireDate, setHireDate] = useState("");
 
   useEffect(() => {
     if (employee) {
       setName(employee.name);
       setRole(employee.role ?? "");
       setVacant(employee.vacant);
+      setHireDate(employee.hire_date ?? "");
     }
   }, [employee]);
 
   const save = useMutation({
     mutationFn: async () => {
       if (!employee) return;
+      if (!hireDate) throw new Error("Informe a data de admissão.");
       const { error } = await supabase
         .from("period_employees")
-        .update({ name: name.trim(), role: role || null, vacant })
+        .update({
+          name: name.trim(),
+          role: role || null,
+          vacant,
+          hire_date: hireDate,
+        })
         .eq("id", employee.id);
       if (error) throw error;
     },
@@ -103,6 +112,20 @@ export function EmployeeEditDialog({
             <div className="space-y-1.5">
               <Label>Nome</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                Data de admissão <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                type="date"
+                value={hireDate}
+                onChange={(e) => setHireDate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Dias anteriores à admissão ficam desabilitados no grid e não contam
+                como presença.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label>Cargo</Label>
@@ -159,7 +182,10 @@ export function EmployeeEditDialog({
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
+            <Button
+              onClick={() => save.mutate()}
+              disabled={!name.trim() || !hireDate || save.isPending}
+            >
               Salvar
             </Button>
           </DialogFooter>
