@@ -416,6 +416,8 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   });
 
   const [editingEmp, setEditingEmp] = useState<EmployeeEditable | null>(null);
+  const [medFor, setMedFor] = useState<PE | null>(null);
+  const [hoverSeg, setHoverSeg] = useState<string | null>(null);
 
   const totalCount = employees.length;
   const vacantCount = employees.filter((e) => e.vacant).length;
