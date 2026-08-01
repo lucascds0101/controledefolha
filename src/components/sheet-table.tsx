@@ -480,7 +480,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
               <DialogFooter>
                 <Button
                   onClick={() => addEmp.mutate()}
-                  disabled={!name.trim() || addEmp.isPending}
+                  disabled={!name.trim() || !hireDate || addEmp.isPending}
                 >
                   Adicionar
                 </Button>
