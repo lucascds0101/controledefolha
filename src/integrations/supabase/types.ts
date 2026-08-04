@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      custom_occurrences: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          label: string
+          period_employee_id: string
+          period_id: string
+          source_employee_id: string | null
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          label: string
+          period_employee_id: string
+          period_id: string
+          source_employee_id?: string | null
+          start_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          label?: string
+          period_employee_id?: string
+          period_id?: string
+          source_employee_id?: string | null
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_occurrences_period_employee_id_fkey"
+            columns: ["period_employee_id"]
+            isOneToOne: false
+            referencedRelation: "period_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_occurrences_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_medical_leaves: {
         Row: {
           cid: string | null
