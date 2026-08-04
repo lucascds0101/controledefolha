@@ -235,12 +235,6 @@ function ProfilePage() {
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {current.role ?? "Sem cargo definido"}
-                {hireDate && (
-                  <>
-                    {" · Admissão "}
-                    {new Date(hireDate + "T00:00:00").toLocaleDateString("pt-BR")}
-                  </>
-                )}
               </p>
             </div>
             <div className="flex items-end gap-2">
