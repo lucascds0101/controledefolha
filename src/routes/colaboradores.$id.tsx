@@ -172,14 +172,10 @@ function ProfilePage() {
     },
   });
 
-  // Counters by type. Nothing before the admission date is ever counted.
-  const hireDate = useMemo(
-    () => peRows.map((r) => r.hire_date).filter(Boolean).sort()[0] ?? null,
-    [peRows],
-  );
+  // Counters by type.
   const counters = useMemo(() => {
     const c = { A: 0, TC: 0, F: 0, ATE: 0, SA: 0, SD: 0, EX: 0, FER: 0 };
-    const floor = hireDate && hireDate > from ? hireDate : from;
+    const floor = from;
     const ateDays = new Set<string>();
     for (const o of occs) {
       if (o.date < floor) continue;
