@@ -724,12 +724,11 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       </div>
                     </div>
                   </td>
-                  {days.map((d) => {
+                  {days.map((d, di) => {
                     const items = occMap.get(`${emp.id}|${d}`) ?? [];
                     const f = fmtDay(d);
                     const ds = dayState(d, today);
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
-                    const preHire = !!emp.hire_date && d < emp.hire_date;
                     const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
                     const seg = medSegByEmp.get(emp.id)?.get(d) ?? null;
                     const onMed = !!seg;
@@ -742,70 +741,79 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       !!cellSwap &&
                       cellSwap.swap.work_confirmed &&
                       cellSwap.swap.off_confirmed;
+                    const custom = customByCell.get(`${emp.id}|${d}`) ?? null;
+                    const customStart = custom ? customByCell.get(`${emp.id}|${days[di - 1]}`)?.id !== custom.id : false;
+                    const customEnd = custom ? customByCell.get(`${emp.id}|${days[di + 1]}`)?.id !== custom.id : false;
+                    const inSel =
+                      !!sel &&
+                      sel.empId === emp.id &&
+                      di >= Math.min(sel.a, sel.b) &&
+                      di <= Math.max(sel.a, sel.b);
                     const autoPresent =
-                      !preHire &&
                       !onVac &&
                       !onMed &&
                       !cellSwap &&
+                      !custom &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
                       !emp.vacant;
+
+                    const openCell = () => {
+                      if (seg) {
+                        setMedFor(emp);
+                        return;
+                      }
+                      setEditing({
+                        employee: emp,
+                        date: d,
+                        rows: items.map((i) => ({
+                          id: i.id,
+                          type: i.type,
+                          arrival_time: i.arrival_time,
+                          partner_name: i.partner_name,
+                          reason: i.reason,
+                          covered: i.covered,
+                          covered_by: i.covered_by,
+                          exit_time: i.exit_time,
+                          return_time: i.return_time,
+                          note: i.note,
+                        })),
+                      });
+                    };
+
                     return (
                       <td
                         key={d}
-                        onMouseEnter={() => segKey && setHoverSeg(segKey)}
+                        onMouseEnter={() => {
+                          if (segKey) setHoverSeg(segKey);
+                          extendDrag(emp.id, di);
+                        }}
                         onMouseLeave={() => segKey && setHoverSeg(null)}
+                        onMouseDown={(e) => {
+                          if (e.button !== 0) return;
+                          e.preventDefault();
+                          startDrag(emp.id, di, openCell);
+                        }}
                         className={cn(
-                          "border-b border-r align-middle text-center transition",
+                          "border-b border-r align-middle text-center transition select-none",
                           onMed ? "p-0" : "p-1",
-                          preHire
-                            ? "bg-muted/50 cursor-not-allowed"
-                            : "cursor-pointer hover:bg-accent/40",
-                          !preHire && f.isWeekend && "bg-muted/20",
-                          !preHire &&
-                            ds === "today" &&
+                          "cursor-pointer hover:bg-accent/40",
+                          f.isWeekend && "bg-muted/20",
+                          ds === "today" &&
                             "bg-primary/5 ring-1 ring-inset ring-primary/30",
                           ds === "future" && "opacity-60",
                           autoPresent && "bg-occ-p-bg/60",
-                          onVac && !preHire && "bg-occ-fer-bg/60",
-                          onMed && !onVac && !preHire && "bg-occ-ate-bg/50",
+                          onVac && "bg-occ-fer-bg/60",
+                          onMed && !onVac && "bg-occ-ate-bg/50",
                           onMed && !segEnd && "border-r-transparent",
                           segHover && "bg-occ-ate-bg",
-                          cellSwap && !onVac && !onMed && !preHire && "bg-occ-tc-bg/40",
+                          cellSwap && !onVac && !onMed && "bg-occ-tc-bg/40",
+                          inSel &&
+                            "bg-primary/20 ring-1 ring-inset ring-primary/50 opacity-100",
                         )}
-                        onClick={() => {
-                          if (preHire) return;
-                          if (seg) {
-                            setMedFor(emp);
-                            return;
-                          }
-                          setEditing({
-                            employee: emp,
-                            date: d,
-                            rows: items.map((i) => ({
-                              id: i.id,
-                              type: i.type,
-                              arrival_time: i.arrival_time,
-                              partner_name: i.partner_name,
-                              reason: i.reason,
-                              covered: i.covered,
-                              covered_by: i.covered_by,
-                              exit_time: i.exit_time,
-                              return_time: i.return_time,
-                              note: i.note,
-                            })),
-                          });
-                        }}
                       >
-                        {preHire ? (
-                          <div
-                            title={`Admitido em ${new Date(emp.hire_date + "T00:00:00").toLocaleDateString("pt-BR")}`}
-                            className="min-h-[28px] flex items-center justify-center text-muted-foreground/40 text-xs select-none"
-                          >
-                            —
-                          </div>
-                        ) : seg ? (
+                        {seg ? (
                           <div
                             title="Atestado — clique para ver o registro"
                             className={cn(
@@ -843,6 +851,28 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
+                            {custom && (
+                              <button
+                                title={`${custom.label} — clique para editar`}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditCustom({ occ: custom, emp });
+                                }}
+                                className={cn(
+                                  "w-full min-h-[20px] flex items-center px-1 text-[10px] font-bold bg-primary/15 text-primary border-y border-primary/30 hover:bg-primary/25 transition-colors overflow-hidden",
+                                  customStart && "rounded-l-md border-l",
+                                  customEnd && "rounded-r-md border-r",
+                                  customStart ? "justify-start" : "justify-center",
+                                )}
+                              >
+                                {customStart && (
+                                  <span className="truncate whitespace-nowrap">
+                                    {custom.label}
+                                  </span>
+                                )}
+                              </button>
+                            )}
                             {onVac && (
                               <span
                                 title="Férias"
@@ -869,7 +899,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                                 TC{cellSwap.leg === "work" ? "↑" : "↓"}
                               </span>
                             )}
-                            {items.length === 0 && !onVac && !cellSwap ? (
+                            {items.length === 0 && !onVac && !cellSwap && !custom ? (
                               autoPresent ? (
                                 <span
                                   title="Presença confirmada (plantão sem ocorrências)"
