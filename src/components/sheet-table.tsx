@@ -76,6 +76,13 @@ type Swap = {
   off_confirmed: boolean;
   canceled: boolean;
 };
+type CustomOcc = {
+  id: string;
+  period_employee_id: string;
+  label: string;
+  start_date: string;
+  end_date: string;
+};
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
