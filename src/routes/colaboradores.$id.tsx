@@ -79,7 +79,7 @@ function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("period_employees")
-        .select("id,name,role,vacant,source_employee_id,period_id,hire_date")
+        .select("id,name,role,vacant,source_employee_id,period_id")
         .or(`source_employee_id.eq.${id},id.eq.${id}`);
       if (error) throw error;
       return data ?? [];
