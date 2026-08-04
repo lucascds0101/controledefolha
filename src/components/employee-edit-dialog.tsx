@@ -165,7 +165,7 @@ export function EmployeeEditDialog({
             </Button>
             <Button
               onClick={() => save.mutate()}
-              disabled={!name.trim() || !hireDate || save.isPending}
+              disabled={!name.trim() || save.isPending}
             >
               Salvar
             </Button>
