@@ -99,7 +99,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("period_employees")
-        .select("id,source_employee_id,name,role,position,vacant,hire_date")
+        .select("id,source_employee_id,name,role,position,vacant")
         .eq("period_id", period.id)
         .order("position", { ascending: true })
         .order("created_at", { ascending: true });
