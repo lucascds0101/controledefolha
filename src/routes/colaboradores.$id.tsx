@@ -189,7 +189,7 @@ function ProfilePage() {
     c.ATE = ateDays.size;
     c.FER = vacations.length;
     return c;
-  }, [occs, vacations, medLeaves, from, to, hireDate]);
+  }, [occs, vacations, medLeaves, from, to]);
 
   const chartData = useMemo(
     () => [
