@@ -979,6 +979,33 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         sourceEmployeeId={medFor?.source_employee_id ?? null}
         employeeName={medFor?.vacant ? "VAGO" : (medFor?.name ?? "")}
       />
+
+      {pendingSel && (
+        <CustomOccurrenceDialog
+          open={!!pendingSel}
+          onOpenChange={(o) => !o && setPendingSel(null)}
+          employeeName={pendingSel.emp.vacant ? "VAGO" : pendingSel.emp.name}
+          start={pendingSel.start}
+          end={pendingSel.end}
+          saving={createCustom.isPending}
+          onSave={(label) => createCustom.mutate(label)}
+        />
+      )}
+
+      {editCustom && (
+        <CustomOccurrenceDialog
+          open={!!editCustom}
+          onOpenChange={(o) => !o && setEditCustom(null)}
+          employeeName={editCustom.emp.vacant ? "VAGO" : editCustom.emp.name}
+          start={editCustom.occ.start_date}
+          end={editCustom.occ.end_date}
+          initialLabel={editCustom.occ.label}
+          saving={updateCustom.isPending || deleteCustom.isPending}
+          onSave={(label) => updateCustom.mutate(label)}
+          onDelete={() => deleteCustom.mutate()}
+        />
+      )}
     </>
+
   );
 }
