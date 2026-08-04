@@ -447,6 +447,114 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const [medFor, setMedFor] = useState<PE | null>(null);
   const [hoverSeg, setHoverSeg] = useState<string | null>(null);
 
+  // ---- Google Calendar style range selection (drag across a single row) ----
+  type Sel = { empId: string; a: number; b: number };
+  const [sel, setSel] = useState<Sel | null>(null);
+  const selRef = useRef<Sel | null>(null);
+  const draggingRef = useRef(false);
+  const clickRef = useRef<(() => void) | null>(null);
+  const [pendingSel, setPendingSel] = useState<{
+    emp: PE;
+    start: string;
+    end: string;
+  } | null>(null);
+  const [editCustom, setEditCustom] = useState<{ occ: CustomOcc; emp: PE } | null>(null);
+
+  const setSelection = (v: Sel | null) => {
+    selRef.current = v;
+    setSel(v);
+  };
+
+  const startDrag = (empId: string, idx: number, onClick: () => void) => {
+    draggingRef.current = true;
+    clickRef.current = onClick;
+    setSelection({ empId, a: idx, b: idx });
+  };
+
+  const extendDrag = (empId: string, idx: number) => {
+    const cur = selRef.current;
+    if (!draggingRef.current || !cur || cur.empId !== empId || cur.b === idx) return;
+    setSelection({ ...cur, b: idx });
+  };
+
+  useEffect(() => {
+    const up = () => {
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      const cur = selRef.current;
+      setSelection(null);
+      if (!cur) return;
+      if (cur.a === cur.b) {
+        clickRef.current?.();
+      } else {
+        const i = Math.min(cur.a, cur.b);
+        const j = Math.max(cur.a, cur.b);
+        const emp = employees.find((e) => e.id === cur.empId);
+        if (emp) setPendingSel({ emp, start: days[i], end: days[j] });
+      }
+      clickRef.current = null;
+    };
+    window.addEventListener("mouseup", up);
+    return () => window.removeEventListener("mouseup", up);
+  }, [employees, days]);
+
+  const createCustom = useMutation({
+    mutationFn: async (label: string) => {
+      if (!pendingSel) return;
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("custom_occurrences").insert({
+        user_id: u.user!.id,
+        period_id: period.id,
+        period_employee_id: pendingSel.emp.id,
+        source_employee_id: pendingSel.emp.source_employee_id,
+        label,
+        start_date: pendingSel.start,
+        end_date: pendingSel.end,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["custom-occ", period.id] });
+      setPendingSel(null);
+      toast.success("Ocorrência criada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateCustom = useMutation({
+    mutationFn: async (label: string) => {
+      if (!editCustom) return;
+      const { error } = await supabase
+        .from("custom_occurrences")
+        .update({ label })
+        .eq("id", editCustom.occ.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["custom-occ", period.id] });
+      setEditCustom(null);
+      toast.success("Ocorrência atualizada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteCustom = useMutation({
+    mutationFn: async () => {
+      if (!editCustom) return;
+      const { error } = await supabase
+        .from("custom_occurrences")
+        .delete()
+        .eq("id", editCustom.occ.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["custom-occ", period.id] });
+      setEditCustom(null);
+      toast.success("Ocorrência excluída");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const totalCount = employees.length;
   const vacantCount = employees.filter((e) => e.vacant).length;
 
