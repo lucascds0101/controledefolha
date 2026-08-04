@@ -191,6 +191,30 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     },
   });
 
+  const { data: customs = [] } = useQuery({
+    queryKey: ["custom-occ", period.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("custom_occurrences")
+        .select("id,period_employee_id,label,start_date,end_date")
+        .eq("period_id", period.id);
+      if (error) throw error;
+      return (data ?? []) as CustomOcc[];
+    },
+  });
+
+  // Map: `${period_employee_id}|${date}` -> custom occurrence covering that day.
+  const customByCell = useMemo(() => {
+    const out = new Map<string, CustomOcc>();
+    for (const c of customs) {
+      const s = c.start_date > period.start_date ? c.start_date : period.start_date;
+      const e = c.end_date < period.end_date ? c.end_date : period.end_date;
+      if (s > e) continue;
+      for (const d of eachDay(s, e)) out.set(`${c.period_employee_id}|${d}`, c);
+    }
+    return out;
+  }, [customs, period.start_date, period.end_date]);
+
 
   // Map: period_employee_id -> Set<date ISO> covered by a date-range record
   // (vacation or medical leave), clipped to the current period range.
