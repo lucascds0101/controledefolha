@@ -481,19 +481,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>
-                    Data de admissão <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="date"
-                    value={hireDate}
-                    onChange={(e) => setHireDate(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Dias anteriores à admissão ficam desabilitados no grid.
-                  </p>
-                </div>
-                <div className="space-y-1.5">
                   <Label>Cargo</Label>
                   <Select value={role} onValueChange={setRole}>
                     <SelectTrigger>
