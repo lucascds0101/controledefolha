@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Clock, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -32,6 +32,7 @@ import type { Period } from "./period-sidebar";
 import { EmployeeEditDialog, type EmployeeEditable } from "./employee-edit-dialog";
 import { DayTypeCell, type DayType } from "./day-type-cell";
 import { MedicalLeaveDialog } from "./medical-leave-dialog";
+import { CustomOccurrenceDialog } from "./custom-occurrence-dialog";
 
 type Role = { id: string; name: string };
 type PE = {
@@ -41,7 +42,6 @@ type PE = {
   role: string | null;
   position: number;
   vacant: boolean;
-  hire_date: string | null;
 };
 type Occurrence = {
   id: string;
@@ -76,6 +76,13 @@ type Swap = {
   off_confirmed: boolean;
   canceled: boolean;
 };
+type CustomOcc = {
+  id: string;
+  period_employee_id: string;
+  label: string;
+  start_date: string;
+  end_date: string;
+};
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
@@ -99,7 +106,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("period_employees")
-        .select("id,source_employee_id,name,role,position,vacant,hire_date")
+        .select("id,source_employee_id,name,role,position,vacant")
         .eq("period_id", period.id)
         .order("position", { ascending: true })
         .order("created_at", { ascending: true });
@@ -190,6 +197,30 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       return (data ?? []) as Swap[];
     },
   });
+
+  const { data: customs = [] } = useQuery({
+    queryKey: ["custom-occ", period.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("custom_occurrences")
+        .select("id,period_employee_id,label,start_date,end_date")
+        .eq("period_id", period.id);
+      if (error) throw error;
+      return (data ?? []) as CustomOcc[];
+    },
+  });
+
+  // Map: `${period_employee_id}|${date}` -> custom occurrence covering that day.
+  const customByCell = useMemo(() => {
+    const out = new Map<string, CustomOcc>();
+    for (const c of customs) {
+      const s = c.start_date > period.start_date ? c.start_date : period.start_date;
+      const e = c.end_date < period.end_date ? c.end_date : period.end_date;
+      if (s > e) continue;
+      for (const d of eachDay(s, e)) out.set(`${c.period_employee_id}|${d}`, c);
+    }
+    return out;
+  }, [customs, period.start_date, period.end_date]);
 
 
   // Map: period_employee_id -> Set<date ISO> covered by a date-range record
@@ -373,17 +404,14 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const [openAdd, setOpenAdd] = useState(false);
   const [name, setName] = useState("");
   const [role, setRole] = useState<string>("");
-  const [hireDate, setHireDate] = useState("");
   const addEmp = useMutation({
     mutationFn: async () => {
-      if (!hireDate) throw new Error("Informe a data de admissão.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("period_employees").insert({
         user_id: u.user!.id,
         period_id: period.id,
         name,
         role: role || null,
-        hire_date: hireDate,
         position: employees.length,
       });
       if (error) throw error;
@@ -392,7 +420,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       qc.invalidateQueries({ queryKey: ["period_employees", period.id] });
       setName("");
       setRole("");
-      setHireDate("");
       setOpenAdd(false);
       toast.success("Colaborador adicionado neste período");
     },
@@ -419,6 +446,114 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const [editingEmp, setEditingEmp] = useState<EmployeeEditable | null>(null);
   const [medFor, setMedFor] = useState<PE | null>(null);
   const [hoverSeg, setHoverSeg] = useState<string | null>(null);
+
+  // ---- Google Calendar style range selection (drag across a single row) ----
+  type Sel = { empId: string; a: number; b: number };
+  const [sel, setSel] = useState<Sel | null>(null);
+  const selRef = useRef<Sel | null>(null);
+  const draggingRef = useRef(false);
+  const clickRef = useRef<(() => void) | null>(null);
+  const [pendingSel, setPendingSel] = useState<{
+    emp: PE;
+    start: string;
+    end: string;
+  } | null>(null);
+  const [editCustom, setEditCustom] = useState<{ occ: CustomOcc; emp: PE } | null>(null);
+
+  const setSelection = (v: Sel | null) => {
+    selRef.current = v;
+    setSel(v);
+  };
+
+  const startDrag = (empId: string, idx: number, onClick: () => void) => {
+    draggingRef.current = true;
+    clickRef.current = onClick;
+    setSelection({ empId, a: idx, b: idx });
+  };
+
+  const extendDrag = (empId: string, idx: number) => {
+    const cur = selRef.current;
+    if (!draggingRef.current || !cur || cur.empId !== empId || cur.b === idx) return;
+    setSelection({ ...cur, b: idx });
+  };
+
+  useEffect(() => {
+    const up = () => {
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      const cur = selRef.current;
+      setSelection(null);
+      if (!cur) return;
+      if (cur.a === cur.b) {
+        clickRef.current?.();
+      } else {
+        const i = Math.min(cur.a, cur.b);
+        const j = Math.max(cur.a, cur.b);
+        const emp = employees.find((e) => e.id === cur.empId);
+        if (emp) setPendingSel({ emp, start: days[i], end: days[j] });
+      }
+      clickRef.current = null;
+    };
+    window.addEventListener("mouseup", up);
+    return () => window.removeEventListener("mouseup", up);
+  }, [employees, days]);
+
+  const createCustom = useMutation({
+    mutationFn: async (label: string) => {
+      if (!pendingSel) return;
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("custom_occurrences").insert({
+        user_id: u.user!.id,
+        period_id: period.id,
+        period_employee_id: pendingSel.emp.id,
+        source_employee_id: pendingSel.emp.source_employee_id,
+        label,
+        start_date: pendingSel.start,
+        end_date: pendingSel.end,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["custom-occ", period.id] });
+      setPendingSel(null);
+      toast.success("Ocorrência criada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateCustom = useMutation({
+    mutationFn: async (label: string) => {
+      if (!editCustom) return;
+      const { error } = await supabase
+        .from("custom_occurrences")
+        .update({ label })
+        .eq("id", editCustom.occ.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["custom-occ", period.id] });
+      setEditCustom(null);
+      toast.success("Ocorrência atualizada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteCustom = useMutation({
+    mutationFn: async () => {
+      if (!editCustom) return;
+      const { error } = await supabase
+        .from("custom_occurrences")
+        .delete()
+        .eq("id", editCustom.occ.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["custom-occ", period.id] });
+      setEditCustom(null);
+      toast.success("Ocorrência excluída");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const totalCount = employees.length;
   const vacantCount = employees.filter((e) => e.vacant).length;
@@ -450,19 +585,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>
-                    Data de admissão <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="date"
-                    value={hireDate}
-                    onChange={(e) => setHireDate(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Dias anteriores à admissão ficam desabilitados no grid.
-                  </p>
-                </div>
-                <div className="space-y-1.5">
                   <Label>Cargo</Label>
                   <Select value={role} onValueChange={setRole}>
                     <SelectTrigger>
@@ -481,7 +603,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
               <DialogFooter>
                 <Button
                   onClick={() => addEmp.mutate()}
-                  disabled={!name.trim() || !hireDate || addEmp.isPending}
+                  disabled={!name.trim() || addEmp.isPending}
                 >
                   Adicionar
                 </Button>
@@ -578,7 +700,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               name: emp.name,
                               role: emp.role,
                               vacant: emp.vacant,
-                              hire_date: emp.hire_date,
+                              
                             })
                           }
                           aria-label="Editar"
@@ -602,12 +724,11 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       </div>
                     </div>
                   </td>
-                  {days.map((d) => {
+                  {days.map((d, di) => {
                     const items = occMap.get(`${emp.id}|${d}`) ?? [];
                     const f = fmtDay(d);
                     const ds = dayState(d, today);
                     const dt = dayTypeMap.get(d)?.day_type ?? null;
-                    const preHire = !!emp.hire_date && d < emp.hire_date;
                     const onVac = vacByEmp.get(emp.id)?.has(d) ?? false;
                     const seg = medSegByEmp.get(emp.id)?.get(d) ?? null;
                     const onMed = !!seg;
@@ -620,70 +741,79 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       !!cellSwap &&
                       cellSwap.swap.work_confirmed &&
                       cellSwap.swap.off_confirmed;
+                    const custom = customByCell.get(`${emp.id}|${d}`) ?? null;
+                    const customStart = custom ? customByCell.get(`${emp.id}|${days[di - 1]}`)?.id !== custom.id : false;
+                    const customEnd = custom ? customByCell.get(`${emp.id}|${days[di + 1]}`)?.id !== custom.id : false;
+                    const inSel =
+                      !!sel &&
+                      sel.empId === emp.id &&
+                      di >= Math.min(sel.a, sel.b) &&
+                      di <= Math.max(sel.a, sel.b);
                     const autoPresent =
-                      !preHire &&
                       !onVac &&
                       !onMed &&
                       !cellSwap &&
+                      !custom &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
                       !emp.vacant;
+
+                    const openCell = () => {
+                      if (seg) {
+                        setMedFor(emp);
+                        return;
+                      }
+                      setEditing({
+                        employee: emp,
+                        date: d,
+                        rows: items.map((i) => ({
+                          id: i.id,
+                          type: i.type,
+                          arrival_time: i.arrival_time,
+                          partner_name: i.partner_name,
+                          reason: i.reason,
+                          covered: i.covered,
+                          covered_by: i.covered_by,
+                          exit_time: i.exit_time,
+                          return_time: i.return_time,
+                          note: i.note,
+                        })),
+                      });
+                    };
+
                     return (
                       <td
                         key={d}
-                        onMouseEnter={() => segKey && setHoverSeg(segKey)}
+                        onMouseEnter={() => {
+                          if (segKey) setHoverSeg(segKey);
+                          extendDrag(emp.id, di);
+                        }}
                         onMouseLeave={() => segKey && setHoverSeg(null)}
+                        onMouseDown={(e) => {
+                          if (e.button !== 0) return;
+                          e.preventDefault();
+                          startDrag(emp.id, di, openCell);
+                        }}
                         className={cn(
-                          "border-b border-r align-middle text-center transition",
+                          "border-b border-r align-middle text-center transition select-none",
                           onMed ? "p-0" : "p-1",
-                          preHire
-                            ? "bg-muted/50 cursor-not-allowed"
-                            : "cursor-pointer hover:bg-accent/40",
-                          !preHire && f.isWeekend && "bg-muted/20",
-                          !preHire &&
-                            ds === "today" &&
+                          "cursor-pointer hover:bg-accent/40",
+                          f.isWeekend && "bg-muted/20",
+                          ds === "today" &&
                             "bg-primary/5 ring-1 ring-inset ring-primary/30",
                           ds === "future" && "opacity-60",
                           autoPresent && "bg-occ-p-bg/60",
-                          onVac && !preHire && "bg-occ-fer-bg/60",
-                          onMed && !onVac && !preHire && "bg-occ-ate-bg/50",
+                          onVac && "bg-occ-fer-bg/60",
+                          onMed && !onVac && "bg-occ-ate-bg/50",
                           onMed && !segEnd && "border-r-transparent",
                           segHover && "bg-occ-ate-bg",
-                          cellSwap && !onVac && !onMed && !preHire && "bg-occ-tc-bg/40",
+                          cellSwap && !onVac && !onMed && "bg-occ-tc-bg/40",
+                          inSel &&
+                            "bg-primary/20 ring-1 ring-inset ring-primary/50 opacity-100",
                         )}
-                        onClick={() => {
-                          if (preHire) return;
-                          if (seg) {
-                            setMedFor(emp);
-                            return;
-                          }
-                          setEditing({
-                            employee: emp,
-                            date: d,
-                            rows: items.map((i) => ({
-                              id: i.id,
-                              type: i.type,
-                              arrival_time: i.arrival_time,
-                              partner_name: i.partner_name,
-                              reason: i.reason,
-                              covered: i.covered,
-                              covered_by: i.covered_by,
-                              exit_time: i.exit_time,
-                              return_time: i.return_time,
-                              note: i.note,
-                            })),
-                          });
-                        }}
                       >
-                        {preHire ? (
-                          <div
-                            title={`Admitido em ${new Date(emp.hire_date + "T00:00:00").toLocaleDateString("pt-BR")}`}
-                            className="min-h-[28px] flex items-center justify-center text-muted-foreground/40 text-xs select-none"
-                          >
-                            —
-                          </div>
-                        ) : seg ? (
+                        {seg ? (
                           <div
                             title="Atestado — clique para ver o registro"
                             className={cn(
@@ -721,6 +851,28 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
+                            {custom && (
+                              <button
+                                title={`${custom.label} — clique para editar`}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditCustom({ occ: custom, emp });
+                                }}
+                                className={cn(
+                                  "w-full min-h-[20px] flex items-center px-1 text-[10px] font-bold bg-primary/15 text-primary border-y border-primary/30 hover:bg-primary/25 transition-colors overflow-hidden",
+                                  customStart && "rounded-l-md border-l",
+                                  customEnd && "rounded-r-md border-r",
+                                  customStart ? "justify-start" : "justify-center",
+                                )}
+                              >
+                                {customStart && (
+                                  <span className="truncate whitespace-nowrap">
+                                    {custom.label}
+                                  </span>
+                                )}
+                              </button>
+                            )}
                             {onVac && (
                               <span
                                 title="Férias"
@@ -747,7 +899,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                                 TC{cellSwap.leg === "work" ? "↑" : "↓"}
                               </span>
                             )}
-                            {items.length === 0 && !onVac && !cellSwap ? (
+                            {items.length === 0 && !onVac && !cellSwap && !custom ? (
                               autoPresent ? (
                                 <span
                                   title="Presença confirmada (plantão sem ocorrências)"
@@ -827,6 +979,33 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         sourceEmployeeId={medFor?.source_employee_id ?? null}
         employeeName={medFor?.vacant ? "VAGO" : (medFor?.name ?? "")}
       />
+
+      {pendingSel && (
+        <CustomOccurrenceDialog
+          open={!!pendingSel}
+          onOpenChange={(o) => !o && setPendingSel(null)}
+          employeeName={pendingSel.emp.vacant ? "VAGO" : pendingSel.emp.name}
+          start={pendingSel.start}
+          end={pendingSel.end}
+          saving={createCustom.isPending}
+          onSave={(label) => createCustom.mutate(label)}
+        />
+      )}
+
+      {editCustom && (
+        <CustomOccurrenceDialog
+          open={!!editCustom}
+          onOpenChange={(o) => !o && setEditCustom(null)}
+          employeeName={editCustom.emp.vacant ? "VAGO" : editCustom.emp.name}
+          start={editCustom.occ.start_date}
+          end={editCustom.occ.end_date}
+          initialLabel={editCustom.occ.label}
+          saving={updateCustom.isPending || deleteCustom.isPending}
+          onSave={(label) => updateCustom.mutate(label)}
+          onDelete={() => deleteCustom.mutate()}
+        />
+      )}
     </>
+
   );
 }

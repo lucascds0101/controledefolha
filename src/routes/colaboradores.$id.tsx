@@ -79,7 +79,7 @@ function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("period_employees")
-        .select("id,name,role,vacant,source_employee_id,period_id,hire_date")
+        .select("id,name,role,vacant,source_employee_id,period_id")
         .or(`source_employee_id.eq.${id},id.eq.${id}`);
       if (error) throw error;
       return data ?? [];
@@ -172,14 +172,10 @@ function ProfilePage() {
     },
   });
 
-  // Counters by type. Nothing before the admission date is ever counted.
-  const hireDate = useMemo(
-    () => peRows.map((r) => r.hire_date).filter(Boolean).sort()[0] ?? null,
-    [peRows],
-  );
+  // Counters by type.
   const counters = useMemo(() => {
     const c = { A: 0, TC: 0, F: 0, ATE: 0, SA: 0, SD: 0, EX: 0, FER: 0 };
-    const floor = hireDate && hireDate > from ? hireDate : from;
+    const floor = from;
     const ateDays = new Set<string>();
     for (const o of occs) {
       if (o.date < floor) continue;
@@ -193,7 +189,7 @@ function ProfilePage() {
     c.ATE = ateDays.size;
     c.FER = vacations.length;
     return c;
-  }, [occs, vacations, medLeaves, from, to, hireDate]);
+  }, [occs, vacations, medLeaves, from, to]);
 
   const chartData = useMemo(
     () => [
@@ -239,12 +235,6 @@ function ProfilePage() {
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {current.role ?? "Sem cargo definido"}
-                {hireDate && (
-                  <>
-                    {" · Admissão "}
-                    {new Date(hireDate + "T00:00:00").toLocaleDateString("pt-BR")}
-                  </>
-                )}
               </p>
             </div>
             <div className="flex items-end gap-2">
