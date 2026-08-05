@@ -300,7 +300,29 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       }
     }
     return out;
-  }, [medicalLeaves, employees, period.start_date, period.end_date]);
+  // Map: period_employee_id -> (date -> contiguous custom-occurrence segment),
+  // clipped to the current period so the grid can render a merged white block.
+  type CustomSegment = { id: string; start: string; end: string; label: string };
+  const customSegByEmp = useMemo(() => {
+    const out = new Map<string, Map<string, CustomSegment>>();
+    const pstart = period.start_date;
+    const pend = period.end_date;
+    for (const c of customs) {
+      const s = c.start_date > pstart ? c.start_date : pstart;
+      const e = c.end_date < pend ? c.end_date : pend;
+      if (s > e) continue;
+      const seg: CustomSegment = { id: c.id, start: s, end: e, label: c.label };
+      let m = out.get(c.period_employee_id);
+      if (!m) {
+        m = new Map();
+        out.set(c.period_employee_id, m);
+      }
+      for (const d of eachDay(s, e)) m.set(d, seg);
+    }
+    return out;
+  }, [customs, period.start_date, period.end_date]);
+
+
 
   // Map: `${period_employee_id}|${date}` -> swap leg on that date.
   const swapByCell = useMemo(() => {
