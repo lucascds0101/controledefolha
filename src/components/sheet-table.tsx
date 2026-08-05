@@ -469,6 +469,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const [editingEmp, setEditingEmp] = useState<EmployeeEditable | null>(null);
   const [medFor, setMedFor] = useState<PE | null>(null);
   const [hoverSeg, setHoverSeg] = useState<string | null>(null);
+  const [hoverCustom, setHoverCustom] = useState<string | null>(null);
 
   // ---- Google Calendar style range selection (drag across a single row) ----
   type Sel = { empId: string; a: number; b: number };
