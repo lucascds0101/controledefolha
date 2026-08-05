@@ -932,28 +932,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
-                            {custom && (
-                              <button
-                                title={`${custom.label} — clique para editar`}
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditCustom({ occ: custom, emp });
-                                }}
-                                className={cn(
-                                  "w-full min-h-[20px] flex items-center px-1 text-[10px] font-bold bg-primary/15 text-primary border-y border-primary/30 hover:bg-primary/25 transition-colors overflow-hidden",
-                                  customStart && "rounded-l-md border-l",
-                                  customEnd && "rounded-r-md border-r",
-                                  customStart ? "justify-start" : "justify-center",
-                                )}
-                              >
-                                {customStart && (
-                                  <span className="truncate whitespace-nowrap">
-                                    {custom.label}
-                                  </span>
-                                )}
-                              </button>
-                            )}
                             {onVac && (
                               <span
                                 title="Férias"
