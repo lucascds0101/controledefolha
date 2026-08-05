@@ -958,7 +958,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                                 TC{cellSwap.leg === "work" ? "↑" : "↓"}
                               </span>
                             )}
-                            {items.length === 0 && !onVac && !cellSwap && !custom ? (
+                            {items.length === 0 && !onVac && !cellSwap && !onCustom ? (
                               autoPresent ? (
                                 <span
                                   title="Presença confirmada (plantão sem ocorrências)"
