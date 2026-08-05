@@ -765,9 +765,12 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       !!cellSwap &&
                       cellSwap.swap.work_confirmed &&
                       cellSwap.swap.off_confirmed;
-                    const custom = customByCell.get(`${emp.id}|${d}`) ?? null;
-                    const customStart = custom ? customByCell.get(`${emp.id}|${days[di - 1]}`)?.id !== custom.id : false;
-                    const customEnd = custom ? customByCell.get(`${emp.id}|${days[di + 1]}`)?.id !== custom.id : false;
+                    const customSeg = customSegByEmp.get(emp.id)?.get(d) ?? null;
+                    const onCustom = !!customSeg;
+                    const customSegKey = customSeg ? `${emp.id}|${customSeg.id}` : null;
+                    const customSegHover = !!customSegKey && hoverCustom === customSegKey;
+                    const customStart = customSeg ? customSeg.start === d : false;
+                    const customEnd = customSeg ? customSeg.end === d : false;
                     const inSel =
                       !!sel &&
                       sel.empId === emp.id &&
