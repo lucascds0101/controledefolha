@@ -301,6 +301,29 @@ export function SheetTable({ period, search }: { period: Period; search: string 
     }
     return out;
   }, [medicalLeaves, employees, period.start_date, period.end_date]);
+  // Map: period_employee_id -> (date -> contiguous custom-occurrence segment),
+  // clipped to the current period so the grid can render a merged white block.
+  type CustomSegment = { id: string; start: string; end: string; label: string };
+  const customSegByEmp = useMemo(() => {
+    const out = new Map<string, Map<string, CustomSegment>>();
+    const pstart = period.start_date;
+    const pend = period.end_date;
+    for (const c of customs) {
+      const s = c.start_date > pstart ? c.start_date : pstart;
+      const e = c.end_date < pend ? c.end_date : pend;
+      if (s > e) continue;
+      const seg: CustomSegment = { id: c.id, start: s, end: e, label: c.label };
+      let m = out.get(c.period_employee_id);
+      if (!m) {
+        m = new Map();
+        out.set(c.period_employee_id, m);
+      }
+      for (const d of eachDay(s, e)) m.set(d, seg);
+    }
+    return out;
+  }, [customs, period.start_date, period.end_date]);
+
+
 
   // Map: `${period_employee_id}|${date}` -> swap leg on that date.
   const swapByCell = useMemo(() => {
@@ -446,6 +469,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const [editingEmp, setEditingEmp] = useState<EmployeeEditable | null>(null);
   const [medFor, setMedFor] = useState<PE | null>(null);
   const [hoverSeg, setHoverSeg] = useState<string | null>(null);
+  const [hoverCustom, setHoverCustom] = useState<string | null>(null);
 
   // ---- Google Calendar style range selection (drag across a single row) ----
   type Sel = { empId: string; a: number; b: number };
@@ -741,9 +765,12 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       !!cellSwap &&
                       cellSwap.swap.work_confirmed &&
                       cellSwap.swap.off_confirmed;
-                    const custom = customByCell.get(`${emp.id}|${d}`) ?? null;
-                    const customStart = custom ? customByCell.get(`${emp.id}|${days[di - 1]}`)?.id !== custom.id : false;
-                    const customEnd = custom ? customByCell.get(`${emp.id}|${days[di + 1]}`)?.id !== custom.id : false;
+                    const customSeg = customSegByEmp.get(emp.id)?.get(d) ?? null;
+                    const onCustom = !!customSeg;
+                    const customSegKey = customSeg ? `${emp.id}|${customSeg.id}` : null;
+                    const customSegHover = !!customSegKey && hoverCustom === customSegKey;
+                    const customStart = customSeg ? customSeg.start === d : false;
+                    const customEnd = customSeg ? customSeg.end === d : false;
                     const inSel =
                       !!sel &&
                       sel.empId === emp.id &&
@@ -753,7 +780,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       !onVac &&
                       !onMed &&
                       !cellSwap &&
-                      !custom &&
+                      !onCustom &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -762,6 +789,11 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const openCell = () => {
                       if (seg) {
                         setMedFor(emp);
+                        return;
+                      }
+                      if (customSeg) {
+                        const occ = customByCell.get(`${emp.id}|${d}`);
+                        if (occ) setEditCustom({ occ, emp });
                         return;
                       }
                       setEditing({
@@ -787,9 +819,13 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         key={d}
                         onMouseEnter={() => {
                           if (segKey) setHoverSeg(segKey);
+                          if (customSegKey) setHoverCustom(customSegKey);
                           extendDrag(emp.id, di);
                         }}
-                        onMouseLeave={() => segKey && setHoverSeg(null)}
+                        onMouseLeave={() => {
+                          segKey && setHoverSeg(null);
+                          customSegKey && setHoverCustom(null);
+                        }}
                         onMouseDown={(e) => {
                           if (e.button !== 0) return;
                           e.preventDefault();
@@ -797,7 +833,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         }}
                         className={cn(
                           "border-b border-r align-middle text-center transition select-none",
-                          onMed ? "p-0" : "p-1",
+                          (onMed || onCustom) ? "p-0" : "p-1",
                           "cursor-pointer hover:bg-accent/40",
                           f.isWeekend && "bg-muted/20",
                           ds === "today" &&
@@ -808,12 +844,57 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           onMed && !onVac && "bg-occ-ate-bg/50",
                           onMed && !segEnd && "border-r-transparent",
                           segHover && "bg-occ-ate-bg",
-                          cellSwap && !onVac && !onMed && "bg-occ-tc-bg/40",
+                          onCustom && !onMed && !onVac && "bg-muted/30",
+                          onCustom && !onMed && !customEnd && "border-r-transparent",
+                          customSegHover && "bg-muted/50",
+                          cellSwap && !onVac && !onMed && !onCustom && "bg-occ-tc-bg/40",
                           inSel &&
                             "bg-primary/20 ring-1 ring-inset ring-primary/50 opacity-100",
                         )}
                       >
-                        {seg ? (
+                        {customSeg ? (
+                          <div
+                            title={`${customSeg.label} — clique para editar`}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const occ = customByCell.get(`${emp.id}|${d}`);
+                              if (occ) setEditCustom({ occ, emp });
+                            }}
+                            className={cn(
+                              "min-h-[28px] flex items-center gap-1 px-1 border-y border-border/70 bg-card transition-colors",
+                              customStart && "rounded-l-md border-l pl-1.5",
+                              customEnd && "rounded-r-md border-r",
+                              customSegHover && "bg-muted",
+                            )}
+                          >
+                            {customStart && (
+                              <span className="text-[10px] font-bold text-foreground whitespace-nowrap">
+                                {customSeg.label}
+                              </span>
+                            )}
+                            <span className="flex-1 flex flex-wrap gap-0.5 justify-center">
+                              {items.map((it) => {
+                                const fm = faltaMeta(it);
+                                const m = fm ?? OCC_META[it.type];
+                                if (!m) return null;
+                                return (
+                                  <span
+                                    key={it.id}
+                                    title={`${m.full} — ${summaryFor(it)}`}
+                                    className={cn(
+                                      "inline-flex items-center justify-center px-1 rounded text-[10px] font-bold",
+                                      m.bg,
+                                      m.text,
+                                    )}
+                                  >
+                                    {m.label}
+                                  </span>
+                                );
+                              })}
+                            </span>
+                          </div>
+                        ) : seg ? (
                           <div
                             title="Atestado — clique para ver o registro"
                             className={cn(
@@ -851,28 +932,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-0.5 justify-center min-h-[28px] items-center">
-                            {custom && (
-                              <button
-                                title={`${custom.label} — clique para editar`}
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditCustom({ occ: custom, emp });
-                                }}
-                                className={cn(
-                                  "w-full min-h-[20px] flex items-center px-1 text-[10px] font-bold bg-primary/15 text-primary border-y border-primary/30 hover:bg-primary/25 transition-colors overflow-hidden",
-                                  customStart && "rounded-l-md border-l",
-                                  customEnd && "rounded-r-md border-r",
-                                  customStart ? "justify-start" : "justify-center",
-                                )}
-                              >
-                                {customStart && (
-                                  <span className="truncate whitespace-nowrap">
-                                    {custom.label}
-                                  </span>
-                                )}
-                              </button>
-                            )}
                             {onVac && (
                               <span
                                 title="Férias"
@@ -899,7 +958,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                                 TC{cellSwap.leg === "work" ? "↑" : "↓"}
                               </span>
                             )}
-                            {items.length === 0 && !onVac && !cellSwap && !custom ? (
+                            {items.length === 0 && !onVac && !cellSwap && !onCustom ? (
                               autoPresent ? (
                                 <span
                                   title="Presença confirmada (plantão sem ocorrências)"
