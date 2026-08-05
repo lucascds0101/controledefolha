@@ -862,17 +862,18 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                               if (occ) setEditCustom({ occ, emp });
                             }}
                             className={cn(
-                              "min-h-[28px] flex items-center gap-1 px-1 border-y border-border/70 bg-card transition-colors",
+                              "relative min-h-[28px] w-full overflow-hidden flex items-center gap-1 px-1 border-y border-border/70 bg-card transition-colors",
                               customStart && "rounded-l-md border-l pl-1.5",
                               customEnd && "rounded-r-md border-r",
                               customSegHover && "bg-muted",
                             )}
                           >
                             {customStart && (
-                              <span className="text-[10px] font-bold text-foreground whitespace-nowrap">
+                              <span className="absolute inset-y-0 left-1.5 right-1 flex items-center text-[10px] font-bold text-foreground truncate pointer-events-none">
                                 {customSeg.label}
                               </span>
                             )}
+
                             <span className="flex-1 flex flex-wrap gap-0.5 justify-center">
                               {items.map((it) => {
                                 const fm = faltaMeta(it);
