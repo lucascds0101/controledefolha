@@ -819,9 +819,13 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         key={d}
                         onMouseEnter={() => {
                           if (segKey) setHoverSeg(segKey);
+                          if (customSegKey) setHoverCustom(customSegKey);
                           extendDrag(emp.id, di);
                         }}
-                        onMouseLeave={() => segKey && setHoverSeg(null)}
+                        onMouseLeave={() => {
+                          segKey && setHoverSeg(null);
+                          customSegKey && setHoverCustom(null);
+                        }}
                         onMouseDown={(e) => {
                           if (e.button !== 0) return;
                           e.preventDefault();
@@ -829,7 +833,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                         }}
                         className={cn(
                           "border-b border-r align-middle text-center transition select-none",
-                          onMed ? "p-0" : "p-1",
+                          (onMed || onCustom) ? "p-0" : "p-1",
                           "cursor-pointer hover:bg-accent/40",
                           f.isWeekend && "bg-muted/20",
                           ds === "today" &&
@@ -840,12 +844,57 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           onMed && !onVac && "bg-occ-ate-bg/50",
                           onMed && !segEnd && "border-r-transparent",
                           segHover && "bg-occ-ate-bg",
-                          cellSwap && !onVac && !onMed && "bg-occ-tc-bg/40",
+                          onCustom && !onMed && !onVac && "bg-muted/30",
+                          onCustom && !onMed && !customEnd && "border-r-transparent",
+                          customSegHover && "bg-muted/50",
+                          cellSwap && !onVac && !onMed && !onCustom && "bg-occ-tc-bg/40",
                           inSel &&
                             "bg-primary/20 ring-1 ring-inset ring-primary/50 opacity-100",
                         )}
                       >
-                        {seg ? (
+                        {customSeg ? (
+                          <div
+                            title={`${customSeg.label} — clique para editar`}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const occ = customByCell.get(`${emp.id}|${d}`);
+                              if (occ) setEditCustom({ occ, emp });
+                            }}
+                            className={cn(
+                              "min-h-[28px] flex items-center gap-1 px-1 border-y border-border/70 bg-card transition-colors",
+                              customStart && "rounded-l-md border-l pl-1.5",
+                              customEnd && "rounded-r-md border-r",
+                              customSegHover && "bg-muted",
+                            )}
+                          >
+                            {customStart && (
+                              <span className="text-[10px] font-bold text-foreground whitespace-nowrap">
+                                {customSeg.label}
+                              </span>
+                            )}
+                            <span className="flex-1 flex flex-wrap gap-0.5 justify-center">
+                              {items.map((it) => {
+                                const fm = faltaMeta(it);
+                                const m = fm ?? OCC_META[it.type];
+                                if (!m) return null;
+                                return (
+                                  <span
+                                    key={it.id}
+                                    title={`${m.full} — ${summaryFor(it)}`}
+                                    className={cn(
+                                      "inline-flex items-center justify-center px-1 rounded text-[10px] font-bold",
+                                      m.bg,
+                                      m.text,
+                                    )}
+                                  >
+                                    {m.label}
+                                  </span>
+                                );
+                              })}
+                            </span>
+                          </div>
+                        ) : seg ? (
                           <div
                             title="Atestado — clique para ver o registro"
                             className={cn(
