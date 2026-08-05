@@ -780,7 +780,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       !onVac &&
                       !onMed &&
                       !cellSwap &&
-                      !custom &&
+                      !onCustom &&
                       items.length === 0 &&
                       dt === "plantao" &&
                       (ds === "past" || ds === "today") &&
@@ -789,6 +789,11 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                     const openCell = () => {
                       if (seg) {
                         setMedFor(emp);
+                        return;
+                      }
+                      if (customSeg) {
+                        const occ = customByCell.get(`${emp.id}|${d}`);
+                        if (occ) setEditCustom({ occ, emp });
                         return;
                       }
                       setEditing({
