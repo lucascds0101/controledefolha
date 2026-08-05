@@ -300,6 +300,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       }
     }
     return out;
+  }, [medicalLeaves, employees, period.start_date, period.end_date]);
   // Map: period_employee_id -> (date -> contiguous custom-occurrence segment),
   // clipped to the current period so the grid can render a merged white block.
   type CustomSegment = { id: string; start: string; end: string; label: string };
