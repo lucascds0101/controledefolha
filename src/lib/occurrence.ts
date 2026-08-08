@@ -14,6 +14,24 @@ export const OCC_META: Record<
 
 export const OCC_TYPES: OccType[] = ["A", "F", "SA", "SD", "EX"];
 
+/** Types selectable in the cell editor, including range/confirmation-based ones. */
+export type EditorType = OccType | "ATE";
+
+export const ATE_META = {
+  label: "ATE",
+  full: "Atestado",
+  bg: "bg-occ-ate-bg",
+  text: "text-occ-ate",
+  ring: "ring-occ-ate/40",
+};
+
+export const EDITOR_META: Record<
+  EditorType,
+  { label: string; full: string; bg: string; text: string; ring: string }
+> = { ...OCC_META, ATE: ATE_META };
+
+export const EDITOR_TYPES: EditorType[] = ["A", "F", "SA", "SD", "EX", "ATE", "TC"];
+
 // Visual override for Abono
 export const ABONO_META = {
   label: "AB",
