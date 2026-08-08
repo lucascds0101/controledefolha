@@ -34,6 +34,7 @@ function displayName(e: SortableEmployee): string {
 
 export function sortEmployees<T extends SortableEmployee>(list: T[]): T[] {
   return [...list].sort((a, b) => {
+    if (a.vacant !== b.vacant) return a.vacant ? 1 : -1;
     const ra = roleRank(a.role);
     const rb = roleRank(b.role);
     if (ra !== rb) return ra - rb;
