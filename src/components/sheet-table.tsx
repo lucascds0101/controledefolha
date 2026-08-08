@@ -1166,13 +1166,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         onOpenChange={(o) => !o && setEditingEmp(null)}
       />
 
-      <MedicalLeaveDialog
-        open={!!medFor}
-        onOpenChange={(o) => !o && setMedFor(null)}
-        periodEmployeeId={medFor?.id ?? null}
-        sourceEmployeeId={medFor?.source_employee_id ?? null}
-        employeeName={medFor?.vacant ? "VAGO" : (medFor?.name ?? "")}
-      />
 
       {pendingSel && (
         <CustomOccurrenceDialog
