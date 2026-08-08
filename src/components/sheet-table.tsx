@@ -387,22 +387,26 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const saveCell = useMutation({
     mutationFn: async (rows: CellOccurrence[]) => {
       if (!editing) return;
+      const emp = editing.employee;
       const { data: u } = await supabase.auth.getUser();
+      const uid = u.user!.id;
+
+      // --- Standard occurrences (stored in `occurrences`) ---
       await supabase
         .from("occurrences")
         .delete()
-        .eq("employee_id", editing.employee.id)
+        .eq("employee_id", emp.id)
         .eq("date", editing.date)
         .eq("period_id", period.id);
-      const valid = rows.filter((r) => r.type);
-      if (valid.length) {
+      const std = rows.filter((r) => r.type !== "ATE" && r.type !== "TC");
+      if (std.length) {
         const { error } = await supabase.from("occurrences").insert(
-          valid.map((r) => ({
-            user_id: u.user!.id,
-            employee_id: editing.employee.id,
+          std.map((r) => ({
+            user_id: uid,
+            employee_id: emp.id,
             period_id: period.id,
             date: editing.date,
-            type: r.type,
+            type: r.type as OccType,
             arrival_time: r.arrival_time,
             partner_name: r.partner_name,
             reason: r.reason,
@@ -415,9 +419,89 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         );
         if (error) throw error;
       }
+
+      // --- Atestados (stored in `employee_medical_leaves`) ---
+      for (const r of rows.filter((r) => r.type === "ATE")) {
+        const start = r.start_date || editing.date;
+        const nDays = Math.max(1, r.days ?? 1);
+        const payload = {
+          start_date: start,
+          days: nDays,
+          end_date: addDaysISO(start, nDays - 1),
+          cid: r.cid?.trim() || null,
+          note: r.note?.trim() || null,
+        };
+        if (r.recordId) {
+          const { error } = await supabase
+            .from("employee_medical_leaves")
+            .update(payload)
+            .eq("id", r.recordId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("employee_medical_leaves").insert({
+            user_id: uid,
+            period_employee_id: emp.id,
+            source_employee_id: emp.source_employee_id,
+            ...payload,
+          });
+          if (error) throw error;
+        }
+      }
+
+      // --- Trocas casadas (stored in `employee_swaps`) ---
+      for (const r of rows.filter((r) => r.type === "TC")) {
+        const off = r.off_date || editing.date;
+        if (!r.work_date)
+          throw new Error("Informe a data escolhida pelo outro colaborador.");
+        if (!r.partner_name?.trim())
+          throw new Error("Informe o nome do outro colaborador.");
+        if (off === r.work_date)
+          throw new Error("As duas datas da troca não podem ser iguais.");
+        const now = new Date().toISOString();
+        const payload = {
+          partner_name: r.partner_name.trim(),
+          work_date: r.work_date,
+          off_date: off,
+          work_confirmed: !!r.work_confirmed,
+          work_confirmed_at: r.work_confirmed ? now : null,
+          off_confirmed: !!r.off_confirmed,
+          off_confirmed_at: r.off_confirmed ? now : null,
+          note: r.note?.trim() || null,
+        };
+        if (r.recordId) {
+          const { error } = await supabase
+            .from("employee_swaps")
+            .update(payload)
+            .eq("id", r.recordId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("employee_swaps").insert({
+            user_id: uid,
+            period_employee_id: emp.id,
+            source_employee_id: emp.source_employee_id,
+            ...payload,
+          });
+          if (error) throw error;
+        }
+      }
+
+      // --- Removals: records present initially but dropped in the editor ---
+      const kept = new Set(rows.map((r) => r.recordId).filter(Boolean) as string[]);
+      for (const r of editing.rows) {
+        if (!r.recordId || kept.has(r.recordId)) continue;
+        const table = r.type === "ATE" ? "employee_medical_leaves" : "employee_swaps";
+        if (r.type !== "ATE" && r.type !== "TC") continue;
+        const { error } = await supabase.from(table).delete().eq("id", r.recordId);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["occurrences", period.id] });
+      qc.invalidateQueries({ queryKey: ["medical-leaves"] });
+      qc.invalidateQueries({ queryKey: ["medical-leaves-by-period"] });
+      qc.invalidateQueries({ queryKey: ["swaps"] });
+      qc.invalidateQueries({ queryKey: ["profile-swaps"] });
+      qc.invalidateQueries({ queryKey: ["swaps-by-period"] });
       setEditing(null);
       toast.success("Salvo");
     },
