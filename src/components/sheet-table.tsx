@@ -184,7 +184,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
       const { data, error } = await supabase
         .from("employee_medical_leaves")
-        .select("id,period_employee_id,source_employee_id,start_date,end_date")
+        .select("id,period_employee_id,source_employee_id,start_date,end_date,days,cid,note")
         .or(filters.join(","));
       if (error) throw error;
       return (data ?? []) as MedicalLeave[];
@@ -201,7 +201,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       const { data, error } = await supabase
         .from("employee_swaps")
         .select(
-          "id,period_employee_id,source_employee_id,work_date,off_date,work_confirmed,off_confirmed,canceled",
+          "id,period_employee_id,source_employee_id,partner_name,work_date,off_date,work_confirmed,off_confirmed,canceled,note",
         )
         .eq("canceled", false)
         .or(filters.join(","));
