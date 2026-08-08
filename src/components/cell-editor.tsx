@@ -146,7 +146,8 @@ export function CellEditor({
 
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 sheet-scroll">
           {rows.map((row, i) => {
-            const fMeta = faltaMeta(row as { type: never; reason?: string | null });
+            const fMeta =
+              row.type === "F" ? faltaMeta({ type: "F", reason: row.reason }) : null;
             const meta = fMeta ?? EDITOR_META[row.type];
             const ateEnd =
               row.start_date && (row.days ?? 0) >= 1
