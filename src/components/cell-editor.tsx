@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, CheckCircle2, Clock } from "lucide-react";
 import {
-  OCC_META,
-  OCC_TYPES,
+  EDITOR_META,
+  EDITOR_TYPES,
   FALTA_REASONS,
   SAIDA_REASONS,
+  SANCTION_KINDS,
   faltaMeta,
-  type OccType,
+  type EditorType,
 } from "@/lib/occurrence";
 import type { DayType } from "./day-type-cell";
 import { Button } from "@/components/ui/button";
@@ -31,9 +32,17 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export type CellOccurrence = {
   id?: string;
-  type: OccType;
+  /** id of the medical leave / swap record when editing an existing one */
+  recordId?: string;
+  type: EditorType;
   arrival_time: string | null;
   partner_name: string | null;
   reason: string | null;
@@ -42,6 +51,15 @@ export type CellOccurrence = {
   exit_time: string | null;
   return_time: string | null;
   note: string | null;
+  // Atestado (ATE)
+  start_date?: string | null;
+  days?: number | null;
+  cid?: string | null;
+  // Troca casada (TC)
+  work_date?: string | null;
+  off_date?: string | null;
+  work_confirmed?: boolean;
+  off_confirmed?: boolean;
 };
 
 const EMPTY: CellOccurrence = {
@@ -54,6 +72,13 @@ const EMPTY: CellOccurrence = {
   exit_time: null,
   return_time: null,
   note: "",
+  start_date: null,
+  days: 1,
+  cid: null,
+  work_date: null,
+  off_date: null,
+  work_confirmed: false,
+  off_confirmed: false,
 };
 
 export function CellEditor({
@@ -77,21 +102,31 @@ export function CellEditor({
   const [saving, setSaving] = useState(false);
 
   // Extra (EX) is only allowed on Folga days; hide it on Plantão.
-  const availableTypes = useMemo<OccType[]>(() => {
-    if (dayType === "plantao") return OCC_TYPES.filter((t) => t !== "EX");
-    if (dayType === "folga") return ["EX"];
-    return OCC_TYPES;
+  const availableTypes = useMemo<EditorType[]>(() => {
+    if (dayType === "plantao") return EDITOR_TYPES.filter((t) => t !== "EX");
+    if (dayType === "folga") return ["EX", "TC", "ATE"];
+    return EDITOR_TYPES;
   }, [dayType]);
 
   useEffect(() => {
     if (open) {
-      const defaultType: OccType = dayType === "folga" ? "EX" : "A";
+      const defaultType: EditorType = dayType === "folga" ? "EX" : "A";
       setRows(initial.length ? initial : [{ ...EMPTY, type: defaultType }]);
     }
   }, [open, initial, dayType]);
 
   function update(i: number, patch: Partial<CellOccurrence>) {
     setRows((r) => r.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  }
+
+  function changeType(i: number, t: EditorType, note: string | null) {
+    const base: CellOccurrence = { ...EMPTY, type: t, note };
+    if (t === "ATE") {
+      base.start_date = date;
+      base.days = 1;
+    }
+    if (t === "TC") base.off_date = date;
+    setRows((r) => r.map((x, idx) => (idx === i ? { ...base, recordId: x.recordId } : x)));
   }
 
   return (
@@ -111,8 +146,14 @@ export function CellEditor({
 
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 sheet-scroll">
           {rows.map((row, i) => {
-            const fMeta = faltaMeta(row);
-            const meta = fMeta ?? OCC_META[row.type];
+            const fMeta =
+              row.type === "F" ? faltaMeta({ type: "F", reason: row.reason }) : null;
+            const meta = fMeta ?? EDITOR_META[row.type];
+            const ateEnd =
+              row.start_date && (row.days ?? 0) >= 1
+                ? addDaysISO(row.start_date, (row.days ?? 1) - 1)
+                : "";
+            const swapDone = !!row.work_confirmed && !!row.off_confirmed;
             return (
               <div key={i} className={cn("rounded-lg border p-3 space-y-3", meta.bg)}>
                 <div className="flex items-start gap-2">
@@ -120,9 +161,7 @@ export function CellEditor({
                     <Label className="text-xs">Tipo de ocorrência</Label>
                     <Select
                       value={row.type}
-                      onValueChange={(v) =>
-                        update(i, { ...EMPTY, type: v as OccType, note: row.note })
-                      }
+                      onValueChange={(v) => changeType(i, v as EditorType, row.note)}
                     >
                       <SelectTrigger className="bg-card">
                         <SelectValue />
@@ -130,7 +169,7 @@ export function CellEditor({
                       <SelectContent>
                         {availableTypes.map((t) => (
                           <SelectItem key={t} value={t}>
-                            {OCC_META[t].full}
+                            {EDITOR_META[t].full}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -159,6 +198,125 @@ export function CellEditor({
                   </div>
                 )}
 
+                {row.type === "ATE" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Início</Label>
+                        <Input
+                          type="date"
+                          className="bg-card"
+                          value={row.start_date ?? ""}
+                          onChange={(e) =>
+                            update(i, { start_date: e.target.value || null })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Dias</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          className="bg-card"
+                          value={row.days ?? 1}
+                          onChange={(e) =>
+                            update(i, {
+                              days: Math.max(1, Number(e.target.value) || 1),
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Fim</Label>
+                        <Input type="date" value={ateEnd} readOnly disabled />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">CID (opcional)</Label>
+                      <Input
+                        className="bg-card"
+                        value={row.cid ?? ""}
+                        onChange={(e) => update(i, { cid: e.target.value || null })}
+                        placeholder="Ex.: J06.9"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {row.type === "TC" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">
+                          Data de folga (colaborador)
+                        </Label>
+                        <Input
+                          type="date"
+                          className="bg-card"
+                          value={row.off_date ?? ""}
+                          onChange={(e) =>
+                            update(i, { off_date: e.target.value || null })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Data escolhida pelo outro</Label>
+                        <Input
+                          type="date"
+                          className="bg-card"
+                          value={row.work_date ?? ""}
+                          onChange={(e) =>
+                            update(i, { work_date: e.target.value || null })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Nome do outro colaborador</Label>
+                      <Input
+                        className="bg-card"
+                        value={row.partner_name ?? ""}
+                        onChange={(e) =>
+                          update(i, { partner_name: e.target.value || null })
+                        }
+                        placeholder="Digite o nome"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between rounded-md border bg-card p-2">
+                        <Label className="text-xs">Folga confirmada</Label>
+                        <Switch
+                          checked={!!row.off_confirmed}
+                          onCheckedChange={(c) => update(i, { off_confirmed: c })}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between rounded-md border bg-card p-2">
+                        <Label className="text-xs">
+                          Trabalho do outro confirmado
+                        </Label>
+                        <Switch
+                          checked={!!row.work_confirmed}
+                          onCheckedChange={(c) => update(i, { work_confirmed: c })}
+                        />
+                      </div>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
+                          swapDone
+                            ? "bg-occ-p-bg text-occ-p ring-1 ring-occ-p/30"
+                            : "bg-occ-a-bg text-occ-a ring-1 ring-occ-a/40",
+                        )}
+                      >
+                        {swapDone ? (
+                          <CheckCircle2 className="h-3 w-3" />
+                        ) : (
+                          <Clock className="h-3 w-3" />
+                        )}
+                        {swapDone ? "Troca concluída" : "Troca pendente"}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {row.type === "F" && (
                   <div className="space-y-3">

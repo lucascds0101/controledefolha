@@ -31,7 +31,6 @@ import { toast } from "sonner";
 import type { Period } from "./period-sidebar";
 import { EmployeeEditDialog, type EmployeeEditable } from "./employee-edit-dialog";
 import { DayTypeCell, type DayType } from "./day-type-cell";
-import { MedicalLeaveDialog } from "./medical-leave-dialog";
 import { CustomOccurrenceDialog } from "./custom-occurrence-dialog";
 
 type Role = { id: string; name: string };
@@ -65,16 +64,22 @@ type Vacation = {
   start_date: string;
   end_date: string;
 };
-type MedicalLeave = Vacation;
+type MedicalLeave = Vacation & {
+  days: number;
+  cid: string | null;
+  note: string | null;
+};
 type Swap = {
   id: string;
   period_employee_id: string;
   source_employee_id: string | null;
+  partner_name: string | null;
   work_date: string;
   off_date: string;
   work_confirmed: boolean;
   off_confirmed: boolean;
   canceled: boolean;
+  note: string | null;
 };
 type CustomOcc = {
   id: string;
@@ -83,6 +88,12 @@ type CustomOcc = {
   start_date: string;
   end_date: string;
 };
+
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
@@ -172,7 +183,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       if (sourceIds.length) filters.push(`source_employee_id.in.(${sourceIds.join(",")})`);
       const { data, error } = await supabase
         .from("employee_medical_leaves")
-        .select("id,period_employee_id,source_employee_id,start_date,end_date")
+        .select("id,period_employee_id,source_employee_id,start_date,end_date,days,cid,note")
         .or(filters.join(","));
       if (error) throw error;
       return (data ?? []) as MedicalLeave[];
@@ -189,7 +200,7 @@ export function SheetTable({ period, search }: { period: Period; search: string 
       const { data, error } = await supabase
         .from("employee_swaps")
         .select(
-          "id,period_employee_id,source_employee_id,work_date,off_date,work_confirmed,off_confirmed,canceled",
+          "id,period_employee_id,source_employee_id,partner_name,work_date,off_date,work_confirmed,off_confirmed,canceled,note",
         )
         .eq("canceled", false)
         .or(filters.join(","));
@@ -387,22 +398,26 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   const saveCell = useMutation({
     mutationFn: async (rows: CellOccurrence[]) => {
       if (!editing) return;
+      const emp = editing.employee;
       const { data: u } = await supabase.auth.getUser();
+      const uid = u.user!.id;
+
+      // --- Standard occurrences (stored in `occurrences`) ---
       await supabase
         .from("occurrences")
         .delete()
-        .eq("employee_id", editing.employee.id)
+        .eq("employee_id", emp.id)
         .eq("date", editing.date)
         .eq("period_id", period.id);
-      const valid = rows.filter((r) => r.type);
-      if (valid.length) {
+      const std = rows.filter((r) => r.type !== "ATE" && r.type !== "TC");
+      if (std.length) {
         const { error } = await supabase.from("occurrences").insert(
-          valid.map((r) => ({
-            user_id: u.user!.id,
-            employee_id: editing.employee.id,
+          std.map((r) => ({
+            user_id: uid,
+            employee_id: emp.id,
             period_id: period.id,
             date: editing.date,
-            type: r.type,
+            type: r.type as OccType,
             arrival_time: r.arrival_time,
             partner_name: r.partner_name,
             reason: r.reason,
@@ -415,9 +430,89 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         );
         if (error) throw error;
       }
+
+      // --- Atestados (stored in `employee_medical_leaves`) ---
+      for (const r of rows.filter((r) => r.type === "ATE")) {
+        const start = r.start_date || editing.date;
+        const nDays = Math.max(1, r.days ?? 1);
+        const payload = {
+          start_date: start,
+          days: nDays,
+          end_date: addDaysISO(start, nDays - 1),
+          cid: r.cid?.trim() || null,
+          note: r.note?.trim() || null,
+        };
+        if (r.recordId) {
+          const { error } = await supabase
+            .from("employee_medical_leaves")
+            .update(payload)
+            .eq("id", r.recordId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("employee_medical_leaves").insert({
+            user_id: uid,
+            period_employee_id: emp.id,
+            source_employee_id: emp.source_employee_id,
+            ...payload,
+          });
+          if (error) throw error;
+        }
+      }
+
+      // --- Trocas casadas (stored in `employee_swaps`) ---
+      for (const r of rows.filter((r) => r.type === "TC")) {
+        const off = r.off_date || editing.date;
+        if (!r.work_date)
+          throw new Error("Informe a data escolhida pelo outro colaborador.");
+        if (!r.partner_name?.trim())
+          throw new Error("Informe o nome do outro colaborador.");
+        if (off === r.work_date)
+          throw new Error("As duas datas da troca não podem ser iguais.");
+        const now = new Date().toISOString();
+        const payload = {
+          partner_name: r.partner_name.trim(),
+          work_date: r.work_date,
+          off_date: off,
+          work_confirmed: !!r.work_confirmed,
+          work_confirmed_at: r.work_confirmed ? now : null,
+          off_confirmed: !!r.off_confirmed,
+          off_confirmed_at: r.off_confirmed ? now : null,
+          note: r.note?.trim() || null,
+        };
+        if (r.recordId) {
+          const { error } = await supabase
+            .from("employee_swaps")
+            .update(payload)
+            .eq("id", r.recordId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("employee_swaps").insert({
+            user_id: uid,
+            period_employee_id: emp.id,
+            source_employee_id: emp.source_employee_id,
+            ...payload,
+          });
+          if (error) throw error;
+        }
+      }
+
+      // --- Removals: records present initially but dropped in the editor ---
+      const kept = new Set(rows.map((r) => r.recordId).filter(Boolean) as string[]);
+      for (const r of editing.rows) {
+        if (!r.recordId || kept.has(r.recordId)) continue;
+        const table = r.type === "ATE" ? "employee_medical_leaves" : "employee_swaps";
+        if (r.type !== "ATE" && r.type !== "TC") continue;
+        const { error } = await supabase.from(table).delete().eq("id", r.recordId);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["occurrences", period.id] });
+      qc.invalidateQueries({ queryKey: ["medical-leaves"] });
+      qc.invalidateQueries({ queryKey: ["medical-leaves-by-period"] });
+      qc.invalidateQueries({ queryKey: ["swaps"] });
+      qc.invalidateQueries({ queryKey: ["profile-swaps"] });
+      qc.invalidateQueries({ queryKey: ["swaps-by-period"] });
       setEditing(null);
       toast.success("Salvo");
     },
@@ -467,7 +562,11 @@ export function SheetTable({ period, search }: { period: Period; search: string 
   });
 
   const [editingEmp, setEditingEmp] = useState<EmployeeEditable | null>(null);
-  const [medFor, setMedFor] = useState<PE | null>(null);
+  const medById = useMemo(() => {
+    const m = new Map<string, MedicalLeave>();
+    for (const l of medicalLeaves) m.set(l.id, l);
+    return m;
+  }, [medicalLeaves]);
   const [hoverSeg, setHoverSeg] = useState<string | null>(null);
   const [hoverCustom, setHoverCustom] = useState<string | null>(null);
 
@@ -787,19 +886,51 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       !emp.vacant;
 
                     const openCell = () => {
-                      if (seg) {
-                        setMedFor(emp);
-                        return;
-                      }
                       if (customSeg) {
                         const occ = customByCell.get(`${emp.id}|${d}`);
                         if (occ) setEditCustom({ occ, emp });
                         return;
                       }
-                      setEditing({
-                        employee: emp,
-                        date: d,
-                        rows: items.map((i) => ({
+                      const rows: CellOccurrence[] = [];
+                      const ml = seg ? medById.get(seg.id) : null;
+                      if (ml) {
+                        rows.push({
+                          recordId: ml.id,
+                          type: "ATE",
+                          arrival_time: null,
+                          partner_name: null,
+                          reason: null,
+                          covered: null,
+                          covered_by: null,
+                          exit_time: null,
+                          return_time: null,
+                          note: ml.note ?? "",
+                          start_date: ml.start_date,
+                          days: ml.days,
+                          cid: ml.cid,
+                        });
+                      }
+                      if (cellSwap) {
+                        const s = cellSwap.swap;
+                        rows.push({
+                          recordId: s.id,
+                          type: "TC",
+                          arrival_time: null,
+                          partner_name: s.partner_name,
+                          reason: null,
+                          covered: null,
+                          covered_by: null,
+                          exit_time: null,
+                          return_time: null,
+                          note: s.note ?? "",
+                          work_date: s.work_date,
+                          off_date: s.off_date,
+                          work_confirmed: s.work_confirmed,
+                          off_confirmed: s.off_confirmed,
+                        });
+                      }
+                      for (const i of items) {
+                        rows.push({
                           id: i.id,
                           type: i.type,
                           arrival_time: i.arrival_time,
@@ -810,8 +941,9 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           exit_time: i.exit_time,
                           return_time: i.return_time,
                           note: i.note,
-                        })),
-                      });
+                        });
+                      }
+                      setEditing({ employee: emp, date: d, rows });
                     };
 
                     return (
@@ -1033,13 +1165,6 @@ export function SheetTable({ period, search }: { period: Period; search: string 
         onOpenChange={(o) => !o && setEditingEmp(null)}
       />
 
-      <MedicalLeaveDialog
-        open={!!medFor}
-        onOpenChange={(o) => !o && setMedFor(null)}
-        periodEmployeeId={medFor?.id ?? null}
-        sourceEmployeeId={medFor?.source_employee_id ?? null}
-        employeeName={medFor?.vacant ? "VAGO" : (medFor?.name ?? "")}
-      />
 
       {pendingSel && (
         <CustomOccurrenceDialog

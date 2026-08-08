@@ -18,12 +18,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plane, Repeat, Stethoscope } from "lucide-react";
+import { Plane } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VacationDialog } from "./vacation-dialog";
-import { MedicalLeaveDialog } from "./medical-leave-dialog";
-import { SwapDialog } from "./swap-dialog";
 import type { Period } from "./period-sidebar";
 
 type Role = { id: string; name: string };
@@ -93,8 +91,6 @@ export function EmployeeEditDialog({
   });
 
   const [vacOpen, setVacOpen] = useState(false);
-  const [medOpen, setMedOpen] = useState(false);
-  const [swapOpen, setSwapOpen] = useState(false);
 
   return (
     <>
@@ -134,28 +130,18 @@ export function EmployeeEditDialog({
             </div>
 
             {employee && (
-              <div className="grid grid-cols-3 gap-2">
+              <div>
                 <Button
                   variant="outline"
-                  className="justify-start gap-2"
+                  className="justify-start gap-2 w-full"
                   onClick={() => setVacOpen(true)}
                 >
                   <Plane className="h-4 w-4" /> Férias
                 </Button>
-                <Button
-                  variant="outline"
-                  className="justify-start gap-2"
-                  onClick={() => setMedOpen(true)}
-                >
-                  <Stethoscope className="h-4 w-4" /> Atestado
-                </Button>
-                <Button
-                  variant="outline"
-                  className="justify-start gap-2"
-                  onClick={() => setSwapOpen(true)}
-                >
-                  <Repeat className="h-4 w-4" /> Troca casada
-                </Button>
+                <p className="text-xs text-muted-foreground pt-2">
+                  Atestado e troca casada agora são lançados direto na folha, como
+                  qualquer outra ocorrência.
+                </p>
               </div>
             )}
           </div>
@@ -181,22 +167,7 @@ export function EmployeeEditDialog({
         employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
       />
 
-      <MedicalLeaveDialog
-        open={medOpen}
-        onOpenChange={setMedOpen}
-        periodEmployeeId={employee?.id ?? null}
-        sourceEmployeeId={employee?.source_employee_id ?? null}
-        employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
-      />
 
-      <SwapDialog
-        open={swapOpen}
-        onOpenChange={setSwapOpen}
-        period={period}
-        periodEmployeeId={employee?.id ?? null}
-        sourceEmployeeId={employee?.source_employee_id ?? null}
-        employeeName={employee?.vacant ? "VAGO" : employee?.name ?? ""}
-      />
     </>
   );
 }
