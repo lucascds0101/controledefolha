@@ -65,16 +65,22 @@ type Vacation = {
   start_date: string;
   end_date: string;
 };
-type MedicalLeave = Vacation;
+type MedicalLeave = Vacation & {
+  days: number;
+  cid: string | null;
+  note: string | null;
+};
 type Swap = {
   id: string;
   period_employee_id: string;
   source_employee_id: string | null;
+  partner_name: string | null;
   work_date: string;
   off_date: string;
   work_confirmed: boolean;
   off_confirmed: boolean;
   canceled: boolean;
+  note: string | null;
 };
 type CustomOcc = {
   id: string;
@@ -83,6 +89,12 @@ type CustomOcc = {
   start_date: string;
   end_date: string;
 };
+
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export function SheetTable({ period, search }: { period: Period; search: string }) {
   const qc = useQueryClient();
