@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import type { Period } from "./period-sidebar";
 import { EmployeeEditDialog, type EmployeeEditable } from "./employee-edit-dialog";
 import { DayTypeCell, type DayType } from "./day-type-cell";
-import { MedicalLeaveDialog } from "./medical-leave-dialog";
+import { CustomOccurrenceDialog } from "./custom-occurrence-dialog";
 import { CustomOccurrenceDialog } from "./custom-occurrence-dialog";
 
 type Role = { id: string; name: string };
