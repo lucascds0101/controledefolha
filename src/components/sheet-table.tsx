@@ -883,19 +883,51 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                       !emp.vacant;
 
                     const openCell = () => {
-                      if (seg) {
-                        setMedFor(emp);
-                        return;
-                      }
                       if (customSeg) {
                         const occ = customByCell.get(`${emp.id}|${d}`);
                         if (occ) setEditCustom({ occ, emp });
                         return;
                       }
-                      setEditing({
-                        employee: emp,
-                        date: d,
-                        rows: items.map((i) => ({
+                      const rows: CellOccurrence[] = [];
+                      const ml = seg ? medById.get(seg.id) : null;
+                      if (ml) {
+                        rows.push({
+                          recordId: ml.id,
+                          type: "ATE",
+                          arrival_time: null,
+                          partner_name: null,
+                          reason: null,
+                          covered: null,
+                          covered_by: null,
+                          exit_time: null,
+                          return_time: null,
+                          note: ml.note ?? "",
+                          start_date: ml.start_date,
+                          days: ml.days,
+                          cid: ml.cid,
+                        });
+                      }
+                      if (cellSwap) {
+                        const s = cellSwap.swap;
+                        rows.push({
+                          recordId: s.id,
+                          type: "TC",
+                          arrival_time: null,
+                          partner_name: s.partner_name,
+                          reason: null,
+                          covered: null,
+                          covered_by: null,
+                          exit_time: null,
+                          return_time: null,
+                          note: s.note ?? "",
+                          work_date: s.work_date,
+                          off_date: s.off_date,
+                          work_confirmed: s.work_confirmed,
+                          off_confirmed: s.off_confirmed,
+                        });
+                      }
+                      for (const i of items) {
+                        rows.push({
                           id: i.id,
                           type: i.type,
                           arrival_time: i.arrival_time,
@@ -906,8 +938,9 @@ export function SheetTable({ period, search }: { period: Period; search: string 
                           exit_time: i.exit_time,
                           return_time: i.return_time,
                           note: i.note,
-                        })),
-                      });
+                        });
+                      }
+                      setEditing({ employee: emp, date: d, rows });
                     };
 
                     return (
