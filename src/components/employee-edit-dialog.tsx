@@ -134,28 +134,18 @@ export function EmployeeEditDialog({
             </div>
 
             {employee && (
-              <div className="grid grid-cols-3 gap-2">
+              <div>
                 <Button
                   variant="outline"
-                  className="justify-start gap-2"
+                  className="justify-start gap-2 w-full"
                   onClick={() => setVacOpen(true)}
                 >
                   <Plane className="h-4 w-4" /> Férias
                 </Button>
-                <Button
-                  variant="outline"
-                  className="justify-start gap-2"
-                  onClick={() => setMedOpen(true)}
-                >
-                  <Stethoscope className="h-4 w-4" /> Atestado
-                </Button>
-                <Button
-                  variant="outline"
-                  className="justify-start gap-2"
-                  onClick={() => setSwapOpen(true)}
-                >
-                  <Repeat className="h-4 w-4" /> Troca casada
-                </Button>
+                <p className="text-xs text-muted-foreground pt-2">
+                  Atestado e troca casada agora são lançados direto na folha, como
+                  qualquer outra ocorrência.
+                </p>
               </div>
             )}
           </div>
