@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Clock, Pencil, Trash2, UserPlus } from "lucide-react";
+import { CheckCircle2, Clock, Pencil, Search, Trash2, UserPlus, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,7 +96,7 @@ function addDaysISO(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function SheetTable({ period, search }: { period: Period; search: string }) {
+export function SheetTable({ period, search, onSearchChange }: { period: Period; search: string; onSearchChange: (v: string) => void }) {
   const qc = useQueryClient();
   const days = useMemo(() => eachDay(period.start_date, period.end_date), [period]);
   const today = todayISO();
@@ -739,8 +740,29 @@ export function SheetTable({ period, search }: { period: Period; search: string 
           <table className="border-separate border-spacing-0 text-sm w-full">
             <thead className="sticky top-0 z-30">
               <tr>
-                <th className="sticky left-0 top-0 z-40 bg-card border-b border-r min-w-[240px] text-left px-3 py-2 font-medium text-muted-foreground">
-                  Colaborador
+                <th className="sticky left-0 top-0 z-40 bg-card border-b border-r min-w-[240px] text-left px-3 py-2 font-medium text-muted-foreground align-top">
+                  <div className="space-y-1.5">
+                    <div>Colaborador</div>
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        placeholder="Pesquisar…"
+                        className="w-full h-7 pl-7 pr-6 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      {search && (
+                        <button
+                          onClick={() => onSearchChange("")}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label="Limpar"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </th>
                 {days.map((d, idx) => {
                   const f = fmtDay(d);
