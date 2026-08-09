@@ -1266,7 +1266,21 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
           date={editing.date}
           dayType={dayTypeMap.get(editing.date)?.day_type ?? null}
           initial={editing.rows}
+          activeBlocks={blocks
+            .filter(
+              (b) =>
+                (b.period_employee_id === editing.employee.id ||
+                  (!!b.source_employee_id &&
+                    b.source_employee_id === editing.employee.source_employee_id)) &&
+                coversDate(b, editing.date),
+            )
+            .map((b) => ({
+              reason: b.reason,
+              start_date: b.start_date,
+              end_date: b.end_date,
+            }))}
           onSave={async (r) => saveCell.mutateAsync(r)}
+
         />
       )}
 
