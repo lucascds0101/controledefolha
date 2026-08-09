@@ -740,8 +740,29 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
           <table className="border-separate border-spacing-0 text-sm w-full">
             <thead className="sticky top-0 z-30">
               <tr>
-                <th className="sticky left-0 top-0 z-40 bg-card border-b border-r min-w-[240px] text-left px-3 py-2 font-medium text-muted-foreground">
-                  Colaborador
+                <th className="sticky left-0 top-0 z-40 bg-card border-b border-r min-w-[240px] text-left px-3 py-2 font-medium text-muted-foreground align-top">
+                  <div className="space-y-1.5">
+                    <div>Colaborador</div>
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        placeholder="Pesquisar…"
+                        className="w-full h-7 pl-7 pr-6 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      {search && (
+                        <button
+                          onClick={() => onSearchChange("")}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label="Limpar"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </th>
                 {days.map((d, idx) => {
                   const f = fmtDay(d);
