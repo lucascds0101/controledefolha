@@ -602,6 +602,8 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
       qc.invalidateQueries({ queryKey: ["swaps"] });
       qc.invalidateQueries({ queryKey: ["profile-swaps"] });
       qc.invalidateQueries({ queryKey: ["swaps-by-period"] });
+      qc.invalidateQueries({ queryKey: ["employee-blocks"] });
+
       setEditing(null);
       toast.success("Salvo");
     },
