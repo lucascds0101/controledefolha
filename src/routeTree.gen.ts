@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as BloqueiosRouteImport } from './routes/bloqueios'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AnaliseRouteImport } from './routes/analise'
 import { Route as IndexRouteImport } from './routes/index'
@@ -18,6 +19,11 @@ import { Route as ColaboradoresIdRouteImport } from './routes/colaboradores.$id'
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BloqueiosRoute = BloqueiosRouteImport.update({
+  id: '/bloqueios',
+  path: '/bloqueios',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/auth': typeof AuthRoute
+  '/bloqueios': typeof BloqueiosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/colaboradores/$id': typeof ColaboradoresIdRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/auth': typeof AuthRoute
+  '/bloqueios': typeof BloqueiosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/colaboradores/$id': typeof ColaboradoresIdRoute
 }
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/auth': typeof AuthRoute
+  '/bloqueios': typeof BloqueiosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/colaboradores/$id': typeof ColaboradoresIdRoute
 }
@@ -69,15 +78,23 @@ export interface FileRouteTypes {
     | '/'
     | '/analise'
     | '/auth'
+    | '/bloqueios'
     | '/reset-password'
     | '/colaboradores/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/analise' | '/auth' | '/reset-password' | '/colaboradores/$id'
+  to:
+    | '/'
+    | '/analise'
+    | '/auth'
+    | '/bloqueios'
+    | '/reset-password'
+    | '/colaboradores/$id'
   id:
     | '__root__'
     | '/'
     | '/analise'
     | '/auth'
+    | '/bloqueios'
     | '/reset-password'
     | '/colaboradores/$id'
   fileRoutesById: FileRoutesById
@@ -86,6 +103,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnaliseRoute: typeof AnaliseRoute
   AuthRoute: typeof AuthRoute
+  BloqueiosRoute: typeof BloqueiosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ColaboradoresIdRoute: typeof ColaboradoresIdRoute
 }
@@ -97,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bloqueios': {
+      id: '/bloqueios'
+      path: '/bloqueios'
+      fullPath: '/bloqueios'
+      preLoaderRoute: typeof BloqueiosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -134,19 +159,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnaliseRoute: AnaliseRoute,
   AuthRoute: AuthRoute,
+  BloqueiosRoute: BloqueiosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ColaboradoresIdRoute: ColaboradoresIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
