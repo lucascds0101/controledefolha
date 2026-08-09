@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Clock, Pencil, Trash2, UserPlus } from "lucide-react";
+import { CheckCircle2, Clock, Pencil, Search, Trash2, UserPlus, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,7 +96,7 @@ function addDaysISO(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function SheetTable({ period, search }: { period: Period; search: string }) {
+export function SheetTable({ period, search, onSearchChange }: { period: Period; search: string; onSearchChange: (v: string) => void }) {
   const qc = useQueryClient();
   const days = useMemo(() => eachDay(period.start_date, period.end_date), [period]);
   const today = todayISO();
