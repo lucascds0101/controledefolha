@@ -4,6 +4,8 @@ import {
   ClipboardList,
   CalendarDays,
   BarChart3,
+  Ban,
+
   Settings as SettingsIcon,
   LogOut,
   Calendar,
