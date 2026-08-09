@@ -14,8 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OCC_META, eachDay, fmtDay, faltaMeta, summaryFor, type OccType } from "@/lib/occurrence";
+import { OCC_META, eachDay, fmtDay, faltaMeta, isInjustificada, summaryFor, type OccType } from "@/lib/occurrence";
+import { autoBlockEnd, coversDate, type EmployeeBlock } from "@/lib/blocks";
 import { todayISO, dayState } from "@/lib/date-utils";
+
 import { mondayKey } from "@/lib/schedule";
 import { sortEmployees } from "@/lib/sort-employees";
 import { cn } from "@/lib/utils";
