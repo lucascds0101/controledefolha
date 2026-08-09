@@ -212,7 +212,21 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
     },
   });
 
+  const { data: blocks = [] } = useQuery({
+    queryKey: ["employee-blocks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_blocks")
+        .select(
+          "id,period_employee_id,source_employee_id,employee_name,reason,start_date,end_date,note,origin,status,source_kind,source_id",
+        );
+      if (error) throw error;
+      return (data ?? []) as EmployeeBlock[];
+    },
+  });
+
   const { data: customs = [] } = useQuery({
+
     queryKey: ["custom-occ", period.id],
     queryFn: async () => {
       const { data, error } = await supabase
