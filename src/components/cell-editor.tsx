@@ -81,6 +81,12 @@ const EMPTY: CellOccurrence = {
   off_confirmed: false,
 };
 
+export type ActiveBlockInfo = {
+  reason: string;
+  start_date: string;
+  end_date: string;
+};
+
 export function CellEditor({
   open,
   onOpenChange,
@@ -88,6 +94,7 @@ export function CellEditor({
   date,
   dayType,
   initial,
+  activeBlocks = [],
   onSave,
 }: {
   open: boolean;
@@ -96,8 +103,10 @@ export function CellEditor({
   date: string;
   dayType?: DayType;
   initial: CellOccurrence[];
+  activeBlocks?: ActiveBlockInfo[];
   onSave: (rows: CellOccurrence[]) => Promise<void>;
 }) {
+
   const [rows, setRows] = useState<CellOccurrence[]>(initial);
   const [saving, setSaving] = useState(false);
 
@@ -143,6 +152,28 @@ export function CellEditor({
             })}
           </DialogDescription>
         </DialogHeader>
+
+        {activeBlocks.length > 0 &&
+          rows.some((r) => r.type === "EX" || r.type === "TC") && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              <p className="font-semibold text-destructive">
+                Colaborador bloqueado para Extra / Troca casada
+              </p>
+              <ul className="mt-1 space-y-0.5 text-xs text-destructive/90">
+                {activeBlocks.map((b, i) => (
+                  <li key={i}>
+                    {b.reason} — de{" "}
+                    {new Date(b.start_date + "T00:00:00").toLocaleDateString("pt-BR")} até{" "}
+                    {new Date(b.end_date + "T00:00:00").toLocaleDateString("pt-BR")}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Você ainda pode salvar este lançamento.
+              </p>
+            </div>
+          )}
+
 
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 sheet-scroll">
           {rows.map((row, i) => {

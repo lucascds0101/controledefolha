@@ -68,6 +68,60 @@ export type Database = {
           },
         ]
       }
+      employee_blocks: {
+        Row: {
+          created_at: string
+          employee_name: string
+          end_date: string
+          id: string
+          note: string | null
+          origin: string
+          period_employee_id: string | null
+          reason: string
+          source_employee_id: string | null
+          source_id: string | null
+          source_kind: string | null
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          employee_name: string
+          end_date: string
+          id?: string
+          note?: string | null
+          origin?: string
+          period_employee_id?: string | null
+          reason: string
+          source_employee_id?: string | null
+          source_id?: string | null
+          source_kind?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          employee_name?: string
+          end_date?: string
+          id?: string
+          note?: string | null
+          origin?: string
+          period_employee_id?: string | null
+          reason?: string
+          source_employee_id?: string | null
+          source_id?: string | null
+          source_kind?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       employee_medical_leaves: {
         Row: {
           cid: string | null

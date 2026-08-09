@@ -14,8 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OCC_META, eachDay, fmtDay, faltaMeta, summaryFor, type OccType } from "@/lib/occurrence";
+import { OCC_META, eachDay, fmtDay, faltaMeta, isInjustificada, summaryFor, type OccType } from "@/lib/occurrence";
+import { autoBlockEnd, coversDate, type EmployeeBlock } from "@/lib/blocks";
 import { todayISO, dayState } from "@/lib/date-utils";
+
 import { mondayKey } from "@/lib/schedule";
 import { sortEmployees } from "@/lib/sort-employees";
 import { cn } from "@/lib/utils";
@@ -210,7 +212,21 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
     },
   });
 
+  const { data: blocks = [] } = useQuery({
+    queryKey: ["employee-blocks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_blocks")
+        .select(
+          "id,period_employee_id,source_employee_id,employee_name,reason,start_date,end_date,note,origin,status,source_kind,source_id",
+        );
+      if (error) throw error;
+      return (data ?? []) as EmployeeBlock[];
+    },
+  });
+
   const { data: customs = [] } = useQuery({
+
     queryKey: ["custom-occ", period.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -403,7 +419,63 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user!.id;
 
+      const empDisplay = emp.vacant ? "VAGO" : emp.name;
+
+      /** Creates/updates the automatic 7-day block bound to an occurrence record. */
+      async function syncAutoBlock(
+        sourceId: string,
+        kind: "falta" | "atestado",
+        startISO: string,
+      ) {
+        const payload = {
+          user_id: uid,
+          period_employee_id: emp.id,
+          source_employee_id: emp.source_employee_id,
+          employee_name: empDisplay,
+          reason: kind === "falta" ? "Falta injustificada" : "Atestado",
+          start_date: startISO,
+          end_date: autoBlockEnd(startISO),
+          origin: "auto",
+          source_kind: kind,
+          source_id: sourceId,
+        };
+        const { data: found } = await supabase
+          .from("employee_blocks")
+          .select("id")
+          .eq("source_id", sourceId)
+          .maybeSingle();
+        if (found) {
+          await supabase
+            .from("employee_blocks")
+            .update({
+              start_date: payload.start_date,
+              end_date: payload.end_date,
+              reason: payload.reason,
+              employee_name: empDisplay,
+            })
+            .eq("id", found.id);
+        } else {
+          await supabase.from("employee_blocks").insert(payload);
+        }
+      }
+
+      async function dropAutoBlocks(sourceIds: string[]) {
+        if (!sourceIds.length) return;
+        await supabase
+          .from("employee_blocks")
+          .delete()
+          .eq("origin", "auto")
+          .in("source_id", sourceIds);
+      }
+
       // --- Standard occurrences (stored in `occurrences`) ---
+      const { data: previous } = await supabase
+        .from("occurrences")
+        .select("id")
+        .eq("employee_id", emp.id)
+        .eq("date", editing.date)
+        .eq("period_id", period.id);
+      await dropAutoBlocks((previous ?? []).map((p) => p.id));
       await supabase
         .from("occurrences")
         .delete()
@@ -412,24 +484,32 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
         .eq("period_id", period.id);
       const std = rows.filter((r) => r.type !== "ATE" && r.type !== "TC");
       if (std.length) {
-        const { error } = await supabase.from("occurrences").insert(
-          std.map((r) => ({
-            user_id: uid,
-            employee_id: emp.id,
-            period_id: period.id,
-            date: editing.date,
-            type: r.type as OccType,
-            arrival_time: r.arrival_time,
-            partner_name: r.partner_name,
-            reason: r.reason,
-            covered: r.covered,
-            covered_by: r.covered_by,
-            exit_time: r.exit_time,
-            return_time: r.return_time,
-            note: r.note?.trim() || null,
-          })),
-        );
+        const { data: inserted, error } = await supabase
+          .from("occurrences")
+          .insert(
+            std.map((r) => ({
+              user_id: uid,
+              employee_id: emp.id,
+              period_id: period.id,
+              date: editing.date,
+              type: r.type as OccType,
+              arrival_time: r.arrival_time,
+              partner_name: r.partner_name,
+              reason: r.reason,
+              covered: r.covered,
+              covered_by: r.covered_by,
+              exit_time: r.exit_time,
+              return_time: r.return_time,
+              note: r.note?.trim() || null,
+            })),
+          )
+          .select("id,type,reason,date");
         if (error) throw error;
+        for (const o of inserted ?? []) {
+          if (isInjustificada({ type: o.type as OccType, reason: o.reason })) {
+            await syncAutoBlock(o.id, "falta", o.date);
+          }
+        }
       }
 
       // --- Atestados (stored in `employee_medical_leaves`) ---
@@ -449,14 +529,20 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
             .update(payload)
             .eq("id", r.recordId);
           if (error) throw error;
+          await syncAutoBlock(r.recordId, "atestado", start);
         } else {
-          const { error } = await supabase.from("employee_medical_leaves").insert({
-            user_id: uid,
-            period_employee_id: emp.id,
-            source_employee_id: emp.source_employee_id,
-            ...payload,
-          });
+          const { data: ins, error } = await supabase
+            .from("employee_medical_leaves")
+            .insert({
+              user_id: uid,
+              period_employee_id: emp.id,
+              source_employee_id: emp.source_employee_id,
+              ...payload,
+            })
+            .select("id")
+            .single();
           if (error) throw error;
+          if (ins) await syncAutoBlock(ins.id, "atestado", start);
         }
       }
 
@@ -503,9 +589,11 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
         if (!r.recordId || kept.has(r.recordId)) continue;
         const table = r.type === "ATE" ? "employee_medical_leaves" : "employee_swaps";
         if (r.type !== "ATE" && r.type !== "TC") continue;
+        if (r.type === "ATE") await dropAutoBlocks([r.recordId]);
         const { error } = await supabase.from(table).delete().eq("id", r.recordId);
         if (error) throw error;
       }
+
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["occurrences", period.id] });
@@ -514,6 +602,8 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
       qc.invalidateQueries({ queryKey: ["swaps"] });
       qc.invalidateQueries({ queryKey: ["profile-swaps"] });
       qc.invalidateQueries({ queryKey: ["swaps-by-period"] });
+      qc.invalidateQueries({ queryKey: ["employee-blocks"] });
+
       setEditing(null);
       toast.success("Salvo");
     },
@@ -1176,7 +1266,21 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
           date={editing.date}
           dayType={dayTypeMap.get(editing.date)?.day_type ?? null}
           initial={editing.rows}
+          activeBlocks={blocks
+            .filter(
+              (b) =>
+                (b.period_employee_id === editing.employee.id ||
+                  (!!b.source_employee_id &&
+                    b.source_employee_id === editing.employee.source_employee_id)) &&
+                coversDate(b, editing.date),
+            )
+            .map((b) => ({
+              reason: b.reason,
+              start_date: b.start_date,
+              end_date: b.end_date,
+            }))}
           onSave={async (r) => saveCell.mutateAsync(r)}
+
         />
       )}
 
