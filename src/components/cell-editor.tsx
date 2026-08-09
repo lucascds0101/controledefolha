@@ -81,6 +81,12 @@ const EMPTY: CellOccurrence = {
   off_confirmed: false,
 };
 
+export type ActiveBlockInfo = {
+  reason: string;
+  start_date: string;
+  end_date: string;
+};
+
 export function CellEditor({
   open,
   onOpenChange,
@@ -88,6 +94,7 @@ export function CellEditor({
   date,
   dayType,
   initial,
+  activeBlocks = [],
   onSave,
 }: {
   open: boolean;
@@ -96,8 +103,10 @@ export function CellEditor({
   date: string;
   dayType?: DayType;
   initial: CellOccurrence[];
+  activeBlocks?: ActiveBlockInfo[];
   onSave: (rows: CellOccurrence[]) => Promise<void>;
 }) {
+
   const [rows, setRows] = useState<CellOccurrence[]>(initial);
   const [saving, setSaving] = useState(false);
 
