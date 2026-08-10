@@ -40,9 +40,9 @@ export function addDaysISO(iso: string, days: number): string {
   return `${y}-${m}-${day}`;
 }
 
-/** End date for an automatic block created from an occurrence date. */
+/** End date for an automatic block: 7 days counting the start date (inclusive). */
 export function autoBlockEnd(startISO: string): string {
-  return addDaysISO(startISO, BLOCK_DAYS);
+  return addDaysISO(startISO, BLOCK_DAYS - 1);
 }
 
 export function blockDays(b: Pick<EmployeeBlock, "start_date" | "end_date">): number {
