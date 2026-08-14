@@ -841,8 +841,22 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
+        {view === "summary" ? (
+          <SummaryTable
+            employees={filtered}
+            occurrences={occurrences}
+            medicalLeaves={medicalLeaves}
+            swaps={swaps}
+            blocks={blocks}
+            periodStart={period.start_date}
+            periodEnd={period.end_date}
+            search={search}
+            onSearchChange={onSearchChange}
+          />
+        ) : (
         <div className="overflow-auto sheet-scroll max-h-[calc(100vh-12rem)]">
           <table className="border-separate border-spacing-0 text-sm w-full">
             <thead className="sticky top-0 z-30">
