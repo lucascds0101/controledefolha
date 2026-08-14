@@ -1287,6 +1287,7 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {editing && (
