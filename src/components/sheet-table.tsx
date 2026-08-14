@@ -35,6 +35,7 @@ import type { Period } from "./period-sidebar";
 import { EmployeeEditDialog, type EmployeeEditable } from "./employee-edit-dialog";
 import { DayTypeCell, type DayType } from "./day-type-cell";
 import { CustomOccurrenceDialog } from "./custom-occurrence-dialog";
+import { SummaryTable } from "./summary-table";
 
 type Role = { id: string; name: string };
 type PE = {
@@ -102,6 +103,7 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
   const qc = useQueryClient();
   const days = useMemo(() => eachDay(period.start_date, period.end_date), [period]);
   const today = todayISO();
+  const [view, setView] = useState<"grid" | "summary">("grid");
 
   const { data: roles = [] } = useQuery({
     queryKey: ["roles"],
@@ -775,7 +777,7 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
   return (
     <>
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="flex items-center justify-between p-3 border-b bg-muted/40">
+        <div className="flex items-center justify-between gap-3 p-3 border-b bg-muted/40">
           <div>
             <h2 className="font-semibold">Folha de ocorrências</h2>
             <p className="text-xs text-muted-foreground">
@@ -783,6 +785,23 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
               {vacantCount > 0 && ` · ${vacantCount} vago${vacantCount === 1 ? "" : "s"}`}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md border bg-background p-0.5">
+              {(["grid", "summary"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={cn(
+                    "px-2.5 py-1 text-xs rounded-[5px] transition-colors",
+                    view === v
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {v === "grid" ? "Planilha" : "Resumo geral"}
+                </button>
+              ))}
+            </div>
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-2">
@@ -824,8 +843,22 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
+        {view === "summary" ? (
+          <SummaryTable
+            employees={filtered}
+            occurrences={occurrences}
+            medicalLeaves={medicalLeaves}
+            swaps={swaps}
+            blocks={blocks}
+            periodStart={period.start_date}
+            periodEnd={period.end_date}
+            search={search}
+            onSearchChange={onSearchChange}
+          />
+        ) : (
         <div className="overflow-auto sheet-scroll max-h-[calc(100vh-12rem)]">
           <table className="border-separate border-spacing-0 text-sm w-full">
             <thead className="sticky top-0 z-30">
@@ -1256,6 +1289,7 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {editing && (
