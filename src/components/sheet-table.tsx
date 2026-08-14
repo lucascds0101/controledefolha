@@ -103,6 +103,7 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
   const qc = useQueryClient();
   const days = useMemo(() => eachDay(period.start_date, period.end_date), [period]);
   const today = todayISO();
+  const [view, setView] = useState<"grid" | "summary">("grid");
 
   const { data: roles = [] } = useQuery({
     queryKey: ["roles"],
