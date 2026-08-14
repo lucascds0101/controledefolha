@@ -775,7 +775,7 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
   return (
     <>
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="flex items-center justify-between p-3 border-b bg-muted/40">
+        <div className="flex items-center justify-between gap-3 p-3 border-b bg-muted/40">
           <div>
             <h2 className="font-semibold">Folha de ocorrências</h2>
             <p className="text-xs text-muted-foreground">
@@ -783,6 +783,23 @@ export function SheetTable({ period, search, onSearchChange }: { period: Period;
               {vacantCount > 0 && ` · ${vacantCount} vago${vacantCount === 1 ? "" : "s"}`}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md border bg-background p-0.5">
+              {(["grid", "summary"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={cn(
+                    "px-2.5 py-1 text-xs rounded-[5px] transition-colors",
+                    view === v
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {v === "grid" ? "Planilha" : "Resumo geral"}
+                </button>
+              ))}
+            </div>
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-2">
